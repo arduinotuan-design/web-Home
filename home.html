@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+
+    <script>
+    // BẢO VỆ: Kiểm tra thẻ bài ngay lập tức
+    if (localStorage.getItem('isLoggedIn') !== 'true') {
+        window.location.replace('index.html'); 
+    }
+</script>
+
+
+    <link rel="apple-touch-icon" href="">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+
+
+
+
+
+<script src="https://cdn.tailwindcss.com"></script>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+
+
+    
+<title>Demo Mobile App T@ Smart</title>
+    <style>
+
+
+
+
+
+
+/* 2Đổi màu card từ trắng sang xanh nhạt */
+/* KHUNG BAO QUANH CÁC THIẾT BỊ */
+.card {
+    background: transparent !important; /* XOÁ KHUNG TRẮNG */
+    padding: 0;
+    margin-bottom: 18px;
+    border: none;
+    box-shadow: none;
+}
+
+
+/* KHUNG THIẾT BỊ CỤ THỂ (Hình ảnh + Nút) 2*/
+.device-card { 
+    background: transparent !important;
+    border-radius: 0;
+    padding: 0;
+}
+
+/* 3Banner giới thiệu sản phẩm */
+.product-banner {
+    width: 100%;
+    height: 180px; /* Độ cao banner */
+    background: url('LINK_ANH_CUA_BAN_TAI_DAY') no-repeat center center;
+    background-size: cover;
+    border-radius: 0px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: flex-end;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+/*  4*/
+.banner-text {
+    background: rgba(0, 0, 0, 0.4); /* Làm tối nhẹ lớp nền để nổi chữ */
+    color: white;
+    width: 100%;
+    padding: 8px 15px;
+    font-size: 14px;
+    font-weight: bold;
+    backdrop-filter: blur(2px);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+:root { 
+    --bg: #f0f2f5; 
+    --primary: #1a73e8; 
+    --on-active: #2ecc71;
+    --on-dim: #e8f5e9;
+    --off-active: #7f8c8d;
+    --off-dim: #f5f5f5;
+}
+/*11*/
+body {
+    font-family: 'Segoe UI', sans-serif;
+    margin: 0;
+    padding: 10px;
+    padding-bottom: 120px !important;
+
+    background: linear-gradient(
+        180deg,#D6E8F5 0%,#D6E8F5 100%
+    );
+}
+
+.system-sync {
+    border: 1.5px solid rgba(255, 255, 255, 0.65); /* viền trắng mờ */
+    border-radius: 2px;
+    padding: 12px 14px;
+    margin: 10px 0;
+
+    background: rgba(255, 255, 255, 0.15); /* nền rất nhẹ */
+    backdrop-filter: blur(4px);           /* nếu trình duyệt hỗ trợ */
+}
+
+
+/* --- KHU VỰC THIẾT BỊ --- */
+.grid-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+/* Hình ảnh cao ráo đúng ý bạn */
+.device-img { 
+    width: 100%; 
+    height: 130px;        /* Có thể tăng nhẹ độ cao nếu muốn */
+    object-fit: cover; 
+    border-radius: 2px;  /* Bo góc tròn hơn nhìn sẽ sang hơn */
+    display: block;
+    margin: 0 auto;
+}
+/* Chữ V1, V3... nhỏ sắc nét */
+[id^="name-device-"] { 
+    font-size: 12px !important; 
+    font-weight: bold; 
+    margin-top: 15px !important; /* Tăng khoảng cách với hình */
+    margin-bottom: 10px;        /* Khoảng cách với nút bấm bên dưới */
+    color: #333; 
+    display: block;
+}
+.btn-group { display: flex; gap: 15px; justify-content: center; margin-top: 5px; }
+
+/* Nút bấm gọn, không bị dài ngoằng */
+.btn { 
+    height: 26px; 
+    width: 55px;  /* Ép chiều rộng nhỏ lại cho gọn */
+    flex: none;   /* Ngăn không cho nút tự giãn dài ra */
+    font-size: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 5px;
+    font-weight: bold;
+}
+
+/* --- LOGIC MÀU SẮC CŨ CỦA BẠN (GIỮ NGUYÊN) --- */
+.btn-on { background: var(--on-dim); color: var(--on-active); border-color: var(--on-active); }
+.btn-off { background: var(--off-dim); color: var(--off-active); border-color: var(--off-active); }
+.active-on { background: var(--on-active) !important; color: white !important; }
+.active-off { background: var(--off-active) !important; color: white !important; }
+
+/* --- KHÔI PHỤC THANH MENU DƯỚI (QUAN TRỌNG) --- */
+.bottom-menu {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 10px 5px 25px 5px;
+    background: #f0f2f5; /* Màu nền trùng với body như code cũ */
+    z-index: 1000;
+}
+
+.nav-item {
+    background: white; /* Màu trắng cho các ô vuông */
+    width: 22%;
+    height: 65px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1); /* Tạo độ nổi cho ô vuông */
+    cursor: pointer;
+    color: #2c3e50;
+    transition: 0.2s;
+}
+
+.nav-item.active { color: #1a73e8; border: 1.5px solid #1a73e8; }
+.nav-item i { font-size: 20px; margin-bottom: 4px; }
+.nav-item span { font-size: 10px; font-weight: bold; }
+
+/* Các thành phần khác */
+.hidden { display: none !important; }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        /* Tìm và thay thế các dòng tương ứng trong :root và các class btn */
+
+           /* Nút BẬT mặc định */
+       
+        .input-group { display: flex; gap: 5px; margin-bottom: 10px; }
+        input, select { padding: 8px; border: 1px solid #ddd; border-radius: 5px; flex: 1; }
+        .list-box { border: 1px solid #eee; padding: 10px; border-radius: 5px; margin-bottom: 10px; min-height: 40px; background: #fafafa; }
+        .list-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #eee; font-size: 13px; }
+        .btn-del { color: red; cursor: pointer; font-weight: bold; padding: 0 10px; }
+        .btn-save { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+   
+         .device-img:active {
+    transform: scale(0.95);
+    opacity: 0.8;
+}
+
+
+/* Hiệu ứng khi được chọn hoặc nhấn vào */
+
+
+.nav-item:active {
+    transform: scale(0.9);
+    background: #e8f0fe;
+}
+
+
+/* Thêm khoảng trống cuối trang để không bị menu đè lên nội dung */
+body { padding-bottom: 100px !important; }
+   </style>
+</head>
+<body>
+
+
+     <div id="page-home">
+         <div class="banner-text">
+            <i class="fa-solid fa-leaf"></i> Hệ Thống T@ Smart - Nâng Tầm Cuộc Sống
+        </div>
+        <div class="product-banner">
+        <img src="https://images.unsplash.com/photo-1509395176047-4a66953fd231" 
+             style="width: 100%; height: 100%; object-fit: cover; position: absolute;">
+        
+    </div>
+
+    <div class="card">
+        <h3 style="color: #1a73e8; font-weight: 800; margin-bottom: 15px;">
+            <i class="fa-solid fa-microchip"></i> Điều khiển thiết bị
+        </h3>
+        <div id="device_list" class="grid-container"></div>
+    </div>
+
+    
+        <div class="card">
+            <h3>Điều khiển thiết bị</h3>
+            <div id="device_list" class="grid-container"></div>
+        </div>
+
+      <div class="system-sync" style="display: flex; justify-content: space-between; align-items: center;">
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <div id="status-indicator" style="width: 12px; height: 12px; background: #95a5a6; border-radius: 50%;"></div>
+        <span style="font-weight: 800; font-size: 12px;">HỆ THỐNG</span>
+    </div>
+
+    <button onclick="updateStatusOnly()" class="btn-save" style="width: auto; padding: 5px 15px; background: #3498db; font-size: 11px;">
+        ĐỒNG BỘ
+    </button>
+</div>
+
+
+        <div class="card">
+            <h3>Lịch Tưới Lan (V2)</h3>
+            <div class="input-group">
+                <input type="time" id="v2_t">
+                <input type="number" id="v2_d" placeholder="Phút">
+                <button onclick="addV2()" style="padding:0 15px; background:#ddd; border-radius:5px;">+</button>
+            </div>
+            <div id="v2_list" class="list-box"></div>
+           <button class="btn-save" style="background: #2ecc71;" onclick="saveV2(this)">GỬI & LƯU LỊCH TƯỚI</button>
+        </div>
+
+        <div class="card">
+            <h3>Lập lịch Đèn (V0)</h3>
+            <select id="v10_id"></select>
+            <div class="input-group" style="margin-top:10px;">
+                <input type="time" id="v10_on">
+                <input type="time" id="v10_off">
+                <button onclick="addV10()" style="padding:0 15px; background:#ddd; border-radius:5px;">+</button>
+            </div>
+            <div id="v10_list" class="list-box"></div>
+        </div>
+
+      </div>
+
+     <div id="page-alarm" class="hidden">
+        <div class="card" style="text-align: center; position: relative;">
+            <div onclick="gotoPage('home')" style="position: absolute; left: 15px; top: 18px; cursor: pointer; color: var(--primary);">
+                <i class="fa-solid fa-chevron-left"></i> Quay lại
+            </div>
+            <h3 style="font-weight: bold; font-size: 18px; margin-bottom: 20px;">Cấu hình Telegram</h3>
+            <hr>
+            
+            <div style="text-align: left; margin-top: 20px;">
+                <label><b>Telegram Token:</b></label>
+                <input type="text" id="tg_token" style="width:100%; padding:10px; margin:8px 0 15px; border:1px solid #ddd; border-radius:8px;" placeholder="Bot Token của bạn...">
+                
+                <label><b>Telegram Chat ID:</b></label>
+                <input type="text" id="tg_id" style="width:100%; padding:10px; margin:8px 0 15px; border:1px solid #ddd; border-radius:8px;" placeholder="ID người nhận...">
+                
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 25px;">
+                    <input type="checkbox" id="tg_active" style="width: 20px; height: 20px;" checked>
+                    <label for="tg_active" style="color: blue; font-weight: bold; cursor: pointer;">Bật thông báo chuông</label>
+                </div>
+
+                <button onclick="saveTelegram()" style="width: 100%; padding: 12px; background: #3498db; color: white; border: none; border-radius: 8px; font-weight: bold; margin-bottom: 10px;">LƯU VÀ CẬP NHẬT</button>
+                <button onclick="clearAllData()" style="width: 100%; padding: 12px; background: #e74c3c; color: white; border: none; border-radius: 8px; font-weight: bold;">XÓA TẤT CẢ (KHI BÀN GIAO MÁY)</button>
+            </div>
+        </div>
+    </div>
+
+
+   <div class="bottom-menu">
+        <div class="nav-item active" id="nav-home" onclick="gotoPage('home')">
+            <i class="fa-solid fa-house"></i>
+            <span>Trang Chủ</span>
+        </div>
+        <div class="nav-item" onclick="alert('Tính năng video đang cập nhật')">
+            <i class="fa-solid fa-video"></i>
+            <span>Video</span>
+        </div>
+        <div class="nav-item" id="nav-alarm" onclick="gotoPage('alarm')">
+            <i class="fa-solid fa-bell"></i>
+            <span>Báo động</span>
+        </div>
+        <div class="nav-item" onclick="logout()">
+            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+            <span>Đăng Xuất</span>
+        </div>
+    </div>
+
+
+
+      
+    </div>
+
+
+   
+<div style="width: 100%; max-width: 400px; display: flex; justify-content: center;">
+    <button class="btn-save" style="background: #e67e22; margin: 20px 0 40px 0; width: 90%;" onclick="phatWifiConfig()">
+        🔄 ĐỔI MẠNG WIFI (PHÁT AP)
+    </button>
+</div>
+
+
+
+
+
+
+   
+
+
+
+ 
+<script>
+
+// Hàm chuyển trang
+
+
+//===============================================================
+
+
+
+
+
+
+
+
+// 12. Hàm chuyển trang mượt mà
+function gotoPage(p) {
+    // Ẩn tất cả các trang có ID bắt đầu bằng "page-"
+    document.getElementById('page-home').classList.add('hidden');
+    document.getElementById('page-alarm').classList.add('hidden');
+    
+    // Hiện trang cần đến
+    const target = document.getElementById('page-' + p);
+    if(target) target.classList.remove('hidden');
+    if(event) {
+        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+        event.currentTarget.classList.add('active');
+    }
+    // Đổi màu icon menu (nếu muốn)
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+}
+// 22. Hàm Lưu Telegram (Gửi lên pin V0 hoặc pin cấu hình của bạn)
+ // Hàm lưu cấu hình Telegram lên Worker Cloud
+async function saveTelegram() {
+    const token = document.getElementById('tg_token').value.trim();
+    const id = document.getElementById('tg_id').value.trim();
+    const active = document.getElementById('tg_active').checked ? 1 : 0;
+    
+    if(!token || !id) return alert("Vui lòng nhập đủ Token và Chat ID");
+
+    // Tạo chuỗi cấu hình để lưu vào Pin V0 trên chip/cloud
+    const configStr = `TG:${token}|ID:${id}|ACT:${active}`;
+    const url = `${WORKER_URL}?action=update&pin=V0&value=${encodeURIComponent(configStr)}&device=${DEVICE_NAME}`;
+
+    try {
+        await fetch(url);
+        alert("✅ Đã lưu cấu hình Telegram thành công!");
+    } catch (e) {
+        alert("❌ Lỗi kết nối, không lưu được!");
+    }
+}
+
+// 33 Hàm Xóa (Dùng khi bàn giao máy)
+function clearAllData() {
+    if(confirm("Bạn có chắc chắn muốn xóa toàn bộ tên thiết bị và cấu hình Telegram không?")) {
+        localStorage.clear();
+        // Gửi lệnh xóa lên Cloud nếu cần
+        alert("Đã xóa sạch dữ liệu trên trình duyệt.");
+        location.reload();
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+//===============================================================
+// Hàm đăng xuất chuẩn bảo mật22
+function logout() {
+    if (confirm("Bạn có chắc chắn muốn đăng xuất không?")) {
+        // Xóa thẻ bài
+        localStorage.removeItem('isLoggedIn');
+        // Về trang login (đã sửa đúng tên file của bạn là login.html)
+        window.location.replace('index.html');
+    }
+}
+
+
+// Thêm V11 vào cuối danh sách này
+
+const allPins = ["V1", "V3", "V4", "V5", "V6", "V7", "V8", "V9", "V10", "V11", "V12"];
+const v10Mapping = {
+    "1":"V3", "2":"V4", "3":"V5", "4":"V6", "5":"V7", 
+    "6":"V8", "7":"V9", "8":"V10", "9":"V11", "10":"V12" 
+};
+const idLookup = {"V1":1,"V2":2,"V3":3,"V4":4,"V5":5,"V6":6,"V7":7,"V8":8,"V9":9,"V10":10,"V11":11,"V12":12};
+
+
+
+let customNames = {};
+let listV2 = [], listV10 = [], listV0 = [];
+
+// --- CẤU HÌNH THÔNG MINH ---
+
+const segment = "1"; // Định nghĩa số segment để tránh lỗi fetch
+const WORKER_URL = "https://blynk-token-proxy.tanthanhlttb123.workers.dev";
+const DEVICE_NAME = "cay";
+
+
+const isLocal = false;
+
+//---------------------------------------------------------------------
+document.addEventListener("DOMContentLoaded", function() {
+
+
+    const savedTg = localStorage.getItem('tg_config');
+if(savedTg) {
+    const cfg = JSON.parse(savedTg);
+    document.getElementById('tg_token').value = cfg.token;
+    document.getElementById('tg_id').value = cfg.id;
+    document.getElementById('tg_active').checked = cfg.active;
+}
+    // 1. LẤY DỮ LIỆU TỪ BỘ NHỚ TẠM (CACHE)
+    let cachedNames = localStorage.getItem('last_config');
+    let cachedV2 = localStorage.getItem('v2_list_cache');
+    let cachedV10 = localStorage.getItem('v10_list_cache');
+
+    if(cachedNames) customNames = JSON.parse(cachedNames);
+    if(cachedV2) listV2 = JSON.parse(cachedV2);
+    if(cachedV10) listV10 = JSON.parse(cachedV10);
+
+
+    
+    // 2. VẼ GIAO DIỆN LẦN ĐẦU
+    renderUI(); 
+   // updateStatusOnly();
+    // 3. NẾU Ở NHÀ (ISLOCAL), LẤY TÊN THIẾT BỊ MỚI NHẤT TỪ ESP32
+    if (isLocal) {
+        fetch('/get_config?t=' + Date.now()).then(r => r.json()).then(data => {
+            if(data && Object.keys(data).length > 0) {
+                customNames = data;
+                localStorage.setItem('last_config', JSON.stringify(data));
+                renderUI(); // Vẽ lại để cập nhật tên mới
+            }
+        }).catch(()=>{});
+    }
+
+    // 4. ĐỒNG BỘ TRẠNG THÁI NÚT BẤM NGAY LẬP TỨC KHI VỪA MỞ WEB
+    updateStatusOnly();
+
+});
+// Hàm lấy thông báo giọng nói
+
+
+function renderUI() {
+    let h = "";
+    allPins.forEach(p => {
+        let savedImg = localStorage.getItem('img_' + p);
+        let imgSrc = "";
+        
+        if (savedImg) {
+            imgSrc = savedImg; // Ưu tiên ảnh nét trong máy
+        } else if (isLocal) {
+            imgSrc = `/${p.toUpperCase()}.JPG?t=${Date.now()}`; // Lấy từ ESP32 nếu ở nhà
+        }else {
+    // Dùng ảnh icon mặc định thay vì link placeholder bị lỗi
+    imgSrc = "https://cdn-icons-png.flaticon.com/512/628/628283.png"; 
+}
+
+        h += `<div class="device-card">
+            <img src="${imgSrc}" id="img-tag-${p}"
+            class="device-img" 
+            onerror="this.src='https://via.placeholder.com/150/cccccc/ffffff?text=No+Image'"
+            onclick="uploadImg('${p}')" >
+            <span id="name-device-${p}" style="cursor:pointer; font-weight:bold; margin-top:5px; display:block;" onclick="editName('${p}')">
+                ${customNames[p] || p} ✏️
+            </span>
+            <div class="btn-group">
+                <button id="on-${p}" class="btn btn-on" onclick="sendCmd('${p}',1)">BẬT</button>
+                <button id="off-${p}" class="btn btn-off" onclick="sendCmd('${p}',0)">TẮT</button>
+            </div>
+        </div>`;
+    });
+    document.getElementById('device_list').innerHTML = h;
+
+    // Load options cho V10
+    let opt = "";
+    for (let id in v10Mapping) {
+        opt += `<option value="${id}">${customNames[v10Mapping[id]] || ("Đèn " + id)}</option>`;
+    }
+    let v0Select = document.getElementById('v10_id');
+    if(v0Select) v0Select.innerHTML = opt;
+
+    document.getElementById('v2_list').innerHTML = listV2.map((x, i) => 
+        `<div class="list-item"><span><b>${x.t}</b> - Tưới ${x.d}p</span><span class="btn-del" onclick="removeV2(${i})">✖</span></div>`
+    ).join('') || '<div style="color:#ccc;text-align:center">Trống</div>';
+
+    // Cập nhật cách hiển thị danh sách V10
+document.getElementById('v10_list').innerHTML = listV10.map((x, i) => {
+    let tenPhong = customNames[v10Mapping[x.id]] || 'Đèn ' + x.id;
+    return `
+    <div class="list-item" style="display: flex; align-items: center; justify-content: space-between;background: transparent;  margin-bottom: 5px; padding: 8px; border-radius: 5px; border-left: 4px solid var(--primary);">
+        <div style="flex: 1;">
+            <b style="color:var(--primary)">${tenPhong}:</b> 
+            <span style="font-size: 12px;">${x.on} ➔ ${x.off}</span>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button onclick="saveSingleV10(${i}, this)" style="background: #2ecc71; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 11px;">GỬI</button>
+            
+            <span class="btn-del" onclick="removeV10(${i})" style="color: #e74c3c; cursor: pointer; font-weight: bold; padding: 0 5px;">✖</span>
+        </div>
+    </div>`;
+}).join('') || '<div style="color:#ccc;text-align:center">Chưa có lịch được tạo</div>';
+}
+
+// --- HÀM CHỌN ẢNH SIÊU NÉT ---
+function uploadImg(pin) {
+    let input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = e => {
+        let file = e.target.files[0];
+        if (!file) return;
+
+        let reader = new FileReader();
+        reader.onload = event => {
+            let img = new Image();
+            img.onload = () => {
+                let canvas = document.createElement('canvas');
+                let ctx = canvas.getContext('2d');
+
+                // 1. LƯU BẢN NÉT VÀO LOCALSTORAGE (Dùng cho Web Git)
+                let MAX_WEB = 600; 
+                let scaleWeb = MAX_WEB / img.width;
+                canvas.width = MAX_WEB;
+                canvas.height = img.height * scaleWeb;
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                let highResData = canvas.toDataURL('image/jpeg', 0.8);
+                try {
+                    localStorage.setItem('img_' + pin, highResData);
+                    document.getElementById('img-tag-' + pin).src = highResData;
+                } catch(e) { console.log("Bộ nhớ đầy, không thể lưu ảnh nét"); }
+
+                // 2. NÉN 20KB GỬI ESP32 (Chỉ gửi khi ở nhà - isLocal)
+                if (isLocal) {
+                    let MAX_ESP = 300;
+                    let scaleESP = MAX_ESP / img.width;
+                    canvas.width = MAX_ESP;
+                    canvas.height = img.height * scaleESP;
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                    canvas.toBlob(blob => {
+                        let formData = new FormData();
+                        formData.append("image", blob, pin.toUpperCase() + ".JPG");
+                        fetch('/upload', { method: 'POST', body: formData });
+                    }, 'image/jpeg', 0.5);
+                }
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    };
+    input.click();
+}
+
+
+
+
+// Các hàm bổ trợ giữ nguyên
+function sendCmd(pin, value) {
+    const key = localStorage.getItem('userPass');
+    const url = `${WORKER_URL}?action=update&pin=${pin}&value=${value}&device=${DEVICE_NAME}&key=${key}`;
+
+    // 1. NHẤN LÀ ĐỔI MÀU NGAY (Ưu tiên cảm giác người dùng)
+    const onBtn = document.getElementById(`on-${pin}`);
+    const offBtn = document.getElementById(`off-${pin}`);
+    if (value === 1) {
+        onBtn.className = "btn btn-on active-on";
+        offBtn.className = "btn btn-off";
+    } else {
+        onBtn.className = "btn btn-on";
+        offBtn.className = "btn btn-off active-off";
+    }
+
+    // 2. GỬI LỆNH LÊN CLOUD
+    fetch(url).then(() => {
+        console.log("Lệnh đã bay đi. Đợi 3 giây chốt trạng thái...");
+
+        // 3. ĐÚNG 3 GIÂY SAU: HỎI LẠI ĐÚNG 1 LẦN DUY NHẤT
+        setTimeout(() => {
+            console.log("🔍 ĐANG KIỂM TRA THỰC TẾ...");
+            updateStatusOnly(); // Nếu 1 thì nút vẫn xanh, nếu 0 thì tự tắt xám
+        }, 2000); 
+    });
+}
+
+// Hàm này để cập nhật trạng thái nút và đổi màu cái đèn nhỏ trên thanh trạng thái
+
+
+// TỰ ĐỘNG CHẠY KHI MỞ WEB1
+async function saveSingleV10(index, btn) {
+    let item = listV10[index];
+    if(!item) return;
+
+    // Lấy ID thực tế (ví dụ: V3 lấy số 3)
+    let realId = v10Mapping[item.id].replace("V", "");
+    
+    // Tạo chuỗi đúng định dạng Master đang đợi
+    let dataStr = `id:${realId} ${item.on} true ${item.off} false`;
+
+    btn.innerText = "⏳";
+    btn.disabled = true;
+
+    // Tìm trong hàm saveSingleV10 dòng này và sửa lại:
+const url = `${WORKER_URL}?action=update&pin=V0&value=${encodeURIComponent(dataStr)}&device=${DEVICE_NAME}&key=${localStorage.getItem('userPass')}`;
+
+    try {
+        await fetch(url);
+        btn.innerText = "✅ OK";
+        btn.style.background = "#95a5a6";
+        setTimeout(() => { 
+            btn.innerText = "GỬI"; 
+            btn.style.background = "#2ecc71";
+            btn.disabled = false;
+        }, 2000);
+    } catch (err) {
+        alert("Lỗi kết nối!");
+        btn.innerText = "THỬ LẠI";
+        btn.disabled = false;
+    }
+}
+
+function addV2() {
+    let t = document.getElementById('v2_t').value;
+    let d = document.getElementById('v2_d').value;
+    if(t && d) {
+        if (listV2.length >= 6) return alert("Tối đa 6 lần!");
+        listV2.push({t, d}); renderUI(); 
+    }
+    
+    
+}
+
+
+function updateStatusOnly() {
+    const indicator = document.getElementById('status-indicator');
+    if(indicator) indicator.style.background = "#f1c40f"; 
+    const key = localStorage.getItem('userPass'); // Thêm dòng này
+    // Thêm &key=${key} vào link bên dưới
+    let statusUrl = `${WORKER_URL}?action=get_all&device=${DEVICE_NAME}&key=${key}`;
+   
+    
+    // Gửi chuỗi lịch V2 (Tưới cây) hoặc V0 (Đèn) qua Worker để lưu lên Blynk Cloud
+  
+    
+    
+    fetch(statusUrl)
+    .then(r => r.text()) // Đọc dữ liệu thô (dạng chữ) để kiểm tra trước
+    .then(text => {
+        try {
+            // Chỉ khi nào dữ liệu bắt đầu bằng dấu "{" thì mới xử lý đổi màu
+            if (text.trim().startsWith('{')) {
+                const data = JSON.parse(text);
+                console.log("Dữ liệu chuẩn:", data);
+                if(indicator) indicator.style.background = "#2ecc71";
+                
+                for (let p in data) {
+                    let onBtn = document.getElementById(`on-${p}`);
+                    let offBtn = document.getElementById(`off-${p}`);
+                    if(onBtn && offBtn) {
+                        let val = String(data[p]); 
+                        if (val === "1" || val === "true") {
+                            onBtn.className = "btn btn-on active-on";
+                            offBtn.className = "btn btn-off";
+                        } else {
+                            onBtn.className = "btn btn-on";
+                            offBtn.className = "btn btn-off active-off";
+                        }
+                    }
+                }
+            } else {
+                // Nếu Worker trả về chữ "Lệnh không..." thì báo lỗi nhưng không làm treo web
+                console.log("Worker chưa trả về JSON, đang chờ...:", text);
+                if(indicator) indicator.style.background = "#e67e22"; 
+            }
+        } catch (err) {
+            console.log("Lỗi định dạng dữ liệu:", err);
+        }
+    })
+    .catch(e => {
+        if(indicator) indicator.style.background = "#e74c3c"; 
+    });
+}
+function saveV2(btn) {
+    let full = [];
+    for(let i=0; i<6; i++) {
+        if(listV2[i]) {
+            let p = listV2[i].t.split(':');
+            full.push({id:i+1, h:parseInt(p[0]), m:parseInt(p[1]), d:parseInt(listV2[i].d), a:true});
+        } else {
+            full.push({id:i+1, h:0, m:0, d:0, a:false});
+        }
+    }
+    localStorage.setItem('v2_list_cache', JSON.stringify(listV2));
+
+    let url = `${WORKER_URL}?action=update&pin=V2&value=${encodeURIComponent(JSON.stringify(full))}&device=${DEVICE_NAME}&key=${localStorage.getItem('userPass')}`;
+    
+    // Thêm (response) vào đây
+    fetch(url).then((response) => {
+        if (response.ok) {
+            btn.innerText = "✅ ĐÃ XỬ LÝ!"; 
+            btn.style.background = "#2ecc71";
+            setTimeout(() => { 
+                btn.innerText = "GỬI & LƯU LỊCH TƯỚI"; 
+                btn.style.background = ""; 
+            }, 2000);
+        } else {
+            // Nếu Worker trả về lỗi (ví dụ 401, 404, 500)
+            console.warn("Server trả về lỗi nhưng lệnh có thể đã đi:", response.status);
+        }
+    })
+    .catch(e => {
+        // Chỉ hiện log ở Console, không hiện alert làm phiền người dùng
+        console.log("Lỗi mạng, nhưng ESP32 có thể đã nhận được ACK:", e);
+    });
+}
+
+function addV10() {
+    let id = document.getElementById('v10_id').value;
+    let on = document.getElementById('v10_on').value;
+    let off = document.getElementById('v10_off').value;
+    
+    if(on && off) {
+
+        if (on === off) {
+            alert("⚠️ Lỗi: Giờ Bật và Tắt không được trùng nhau!");
+            return; // Thoát ra luôn, không lưu
+        }
+        // Ghi đè nếu trùng ID thiết bị, hoặc thêm mới
+        listV10 = listV10.filter(x => x.id !== id);
+        listV10.push({id, on, off}); 
+        
+        // --- QUAN TRỌNG: Lưu vào localStorage ---
+        localStorage.setItem('v10_list_cache', JSON.stringify(listV10));
+        
+        renderUI();
+    } else {
+        alert("Vui lòng chọn đầy đủ giờ Bật và Tắt!");
+    }
+}
+
+
+function removeV2(i) {
+    if(confirm("Xóa lịch?"))
+     { listV2.splice(i, 1); 
+        renderUI(); 
+       saveV2({ innerText: "", style: {} });
+    }
+}
+
+function removeV10(i) {
+    let item = listV10[i];
+    if(confirm(`Xóa lịch ${customNames[v10Mapping[item.id]] || 'này'}?`)) {
+        let realId = v10Mapping[item.id].replace("V", "");
+        
+        // Gửi lệnh đặc biệt để Slave biết đường mà xóa lịch
+        let cmdDelete = `id:${realId} DELETE`; 
+
+       const key = localStorage.getItem('userPass'); 
+
+        // SỬA TẠI ĐÂY: Thêm &key=${key}
+        const url = `${WORKER_URL}?action=update&pin=V0&value=${encodeURIComponent(cmdDelete)}&device=cay&key=${key}`;
+        
+        fetch(url).then(() => {
+            listV10.splice(i, 1); // Xóa khỏi giao diện
+            localStorage.setItem('v10_list_cache', JSON.stringify(listV10));
+            renderUI();
+        });
+    }
+}
+
+async function deleteAllSchedules() {
+    if (!confirm("⚠️ Bạn có muốn XÓA TẤT CẢ lịch đèn không?")) return;
+
+    const key = localStorage.getItem('userPass');
+
+    // SỬA TẠI ĐÂY: Thêm &key=${key}
+    const deleteUrl = `${WORKER_URL}?action=update&pin=V10&value=CLEAR_DEN&device=cay&key=${key}`;
+    
+    try {
+        const res = await fetch(deleteUrl);
+        if(res.ok) {
+            alert("✅ Đã gửi lệnh xóa lịch đèn thành công!");
+            // Xóa sạch dữ liệu tạm trên trình duyệt
+            localStorage.removeItem('savedSchedules'); 
+            location.reload(); 
+        }
+    } catch (err) {
+        alert("Lỗi kết nối Worker!");
+    }
+}
+
+let isUpdating = false; // Biến chặn gửi trùng lặp
+function editName(p) {
+    if (isUpdating) return; 
+    
+    let oldName = (customNames[p] || p);
+    let newName = prompt("Tên mới cho " + p + ":", oldName);
+    
+    if (newName && newName !== oldName) {
+        isUpdating = true;
+        
+        // 1. Cập nhật giao diện và bộ nhớ tạm ngay lập tức
+        customNames[p] = newName;
+        localStorage.setItem('last_config', JSON.stringify(customNames));
+        renderUI();
+
+        // 2. Lấy key từ localStorage để xác thực với Worker
+        const key = localStorage.getItem('userPass'); 
+
+        // 3. Gửi lên Cloud (Đã thêm tham số &key)
+        const urlCloud = `${WORKER_URL}?action=update&pin=V0&value=${encodeURIComponent(JSON.stringify(customNames))}&device=${DEVICE_NAME}&key=${key}`;
+        
+        fetch(urlCloud)
+            .then(response => {
+                if (response.status === 401) {
+                    alert("Lỗi 401: Sai mật khẩu hoặc chưa đăng nhập!");
+                } else {
+                    console.log("Đã đồng bộ tên mới lên Cloud cho: " + p);
+                }
+                isUpdating = false;
+            })
+            .catch(err => {
+                console.error("Lỗi kết nối:", err);
+                isUpdating = false;
+            });
+    }
+}
+function phatWifiConfig() {
+    let code = prompt("MÃ XÁC THỰC:");
+    if (!code) return;
+    fetch('/phat_wifi_ap?auth_code=' + encodeURIComponent(code))
+    .then(r => r.text()).then(txt => alert(txt)).catch(() => alert("Đang chuyển chế độ..."));
+}
+////22-1-2026 0H:48M
+</script>
+
+</body>
+</html>

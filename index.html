@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>T@ Smart Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #0b1a30; color: white; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .auth-card { background: #162a47; padding: 30px; border-radius: 20px; width: 320px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid #1e3a8a; }
+        .logo-box { width: 50px; height: 50px; background: #f39c12; border-radius: 10px; display: flex; justify-content: center; align-items: center; margin: 0 auto 15px; font-weight: bold; font-size: 24px; color: white; }
+        input { width: 100%; padding: 12px; margin-top: 10px; border-radius: 8px; border: 1px solid #2d3748; background: #1a365d; color: white; outline: none; }
+        .btn { width: 100%; padding: 12px; margin-top: 20px; border-radius: 8px; background: #f39c12; color: white; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn:hover { background: #e67e22; }
+    </style>
+</head>
+<body>
+    <div class="auth-card">
+        <div class="logo-box">T@</div>
+        <h2 style="text-align: center; font-size: 18px; margin-bottom: 5px;">T@ Smart</h2>
+        <p style="text-align: center; font-size: 12px; color: #94a3b8; margin-bottom: 20px;">Ứng dụng điều khiển nhà thông minh</p>
+        
+        <input type="text" id="email" placeholder="Email hoặc username">
+        <input type="password" id="pass" placeholder="Mật khẩu">
+        
+        <button class="btn" id="loginBtn">➜ Đăng nhập</button>
+        <p id="status" style="font-size: 12px; text-align: center; margin-top: 15px; color: #ff7675;"></p>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBDWHfbNKaWCHCu4PkmzScWWkfnQXYfvnI",
+            authDomain: "myloginapp-web.firebaseapp.com",
+            projectId: "myloginapp-web",
+            appId: "1:512830007983:web:18963568636309d0fc425a"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+       document.getElementById('loginBtn').addEventListener('click', async () => {
+    const email = document.getElementById('email').value;
+    const pass = document.getElementById('pass').value; // Đây chính là mật mã 1234567 của bạn
+    const statusMsg = document.getElementById('status');
+
+    try {
+        await signInWithEmailAndPassword(auth, email, pass);
+        
+        // --- PHẦN QUAN TRỌNG NHẤT ---
+        // 1. Lưu trạng thái đăng nhập
+        localStorage.setItem('isLoggedIn', 'true');
+        
+        // 2. Lưu mật khẩu vừa nhập vào "ngăn kéo" userPass
+        // Trang home.html sẽ lấy cái này để dán vào link gửi lên Worker
+        localStorage.setItem('userPass', pass); 
+        // ----------------------------
+
+        statusMsg.innerText = "✅ Đăng nhập thành công!";
+        statusMsg.style.color = "#4ade80";
+
+        setTimeout(() => { window.location.href = "home.html"; }, 500);
+    } catch (e) {
+        statusMsg.innerText = "❌ Sai tài khoản hoặc mật khẩu!";
+    }
+});
+
+
+        function handleLogin() {
+    const passwordVuaNhap = document.getElementById('password_input').value;
+    
+    // Giả sử bạn đã kiểm tra đúng user/pass và cho vào trang chủ
+    // Hãy lưu mật khẩu này vào máy để dùng làm chìa khóa điều khiển
+    localStorage.setItem('userPass', passwordVuaNhap);
+    
+    // Sau đó mới chuyển trang hoặc hiện bảng điều khiển
+    showMainPage();
+}
+    </script>
+</body>
+</html>
