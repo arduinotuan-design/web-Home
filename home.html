@@ -671,13 +671,15 @@ function uploadImg(pin) {
 
 
 // Các hàm bổ trợ giữ nguyên
+let pendingChecks = {}; // Lưu trữ bộ hẹn giờ từng nút
+let clickCounter = 0;   // Đếm số nút đang được bấm đồng thời
+
 function sendCmd(pin, value) {
     const key = localStorage.getItem('userPass');
-    const url = `${WORKER_URL}?action=update&pin=${pin}&value=${value}&device=${DEVICE_NAME}&key=${key}`;
-
-    // 1. NHẤN LÀ ĐỔI MÀU NGAY (Ưu tiên cảm giác người dùng)
     const onBtn = document.getElementById(`on-${pin}`);
     const offBtn = document.getElementById(`off-${pin}`);
+
+    // 1. Phản hồi màu sắc tức thì
     if (value === 1) {
         onBtn.className = "btn btn-on active-on";
         offBtn.className = "btn btn-off";
@@ -686,18 +688,66 @@ function sendCmd(pin, value) {
         offBtn.className = "btn btn-off active-off";
     }
 
-    // 2. GỬI LỆNH LÊN CLOUD
-    fetch(url).then(() => {
-        console.log("Lệnh đã bay đi. Đợi 3 giây chốt trạng thái...");
+    // 2. Logic tính thời gian chờ đúng ý bạn
+    clickCounter++; // Tăng biến đếm mỗi khi bấm
+    
+    let waitTime = 2000; // Mặc định 2s cho 1 hoặc 2 nút đầu
+    if (clickCounter > 2) {
+        waitTime = 2000 + ((clickCounter - 2) * 500); // Từ nút thứ 3 cộng thêm 0.5s
+    }
 
-        // 3. ĐÚNG 3 GIÂY SAU: HỎI LẠI ĐÚNG 1 LẦN DUY NHẤT
-        setTimeout(() => {
-            console.log("🔍 ĐANG KIỂM TRA THỰC TẾ...");
-            updateStatusOnly(); // Nếu 1 thì nút vẫn xanh, nếu 0 thì tự tắt xám
-        }, 2000); 
+    // Xóa hẹn giờ cũ của nút này nếu có (để tránh bị trùng lệnh)
+    if (pendingChecks[pin]) clearTimeout(pendingChecks[pin]);
+
+    // 3. Gửi lệnh POST
+    fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+            'action': 'update',
+            'pin': pin,
+            'value': value,
+            'device': DEVICE_NAME,
+            'key': key
+        })
+    }).then(() => {
+        // Đặt hẹn giờ kiểm tra trạng thái thực từ chip
+        pendingChecks[pin] = setTimeout(() => {
+            updateStatusOnly(); 
+            
+            // Sau khi kiểm tra xong, giảm biến đếm nhưng không để âm
+            clickCounter--;
+            if (clickCounter < 0) clickCounter = 0;
+            
+            delete pendingChecks[pin];
+        }, waitTime);
     });
 }
 
+// 2. Hàm ĐỔI TÊN thiết bị (Xử lý tiếng Việt có dấu + Giấu key)
+function editName(p) {
+    if (isUpdating) return; 
+    let oldName = (customNames[p] || p);
+    let newName = prompt("Tên mới cho " + p + ":", oldName);
+    if (!newName || newName === oldName) return;
+
+    isUpdating = true; 
+    customNames[p] = newName;
+    localStorage.setItem('last_config', JSON.stringify(customNames));
+    renderUI();
+
+    const secret = localStorage.getItem('userPass'); // Chìa khóa bí mật
+    const dataV13 = p + ":" + newName; 
+    
+    // Dùng encodeURIComponent để bảo vệ tiếng Việt có dấu
+    const encodedValue = encodeURIComponent(dataV13);
+    const urlV13 = `${WORKER_URL}?action=update&pin=V13&value=${encodedValue}&device=${DEVICE_NAME}&key=${secret}`;
+
+    fetch(urlV13).then(res => {
+        if (res.ok) console.log("✅ Đã cập nhật tên qua Worker");
+        isUpdating = false; 
+    }).catch(() => { isUpdating = false; });
+}
 // Hàm này để cập nhật trạng thái nút và đổi màu cái đèn nhỏ trên thanh trạng thái
 
 
@@ -745,29 +795,26 @@ function addV2() {
     
 }
 
-
 function updateStatusOnly() {
     const indicator = document.getElementById('status-indicator');
     if(indicator) indicator.style.background = "#f1c40f"; 
-    const key = localStorage.getItem('userPass'); // Thêm dòng này
-    // Thêm &key=${key} vào link bên dưới
-    let statusUrl = `${WORKER_URL}?action=get_all&device=${DEVICE_NAME}&key=${key}`;
-   
-    
-    // Gửi chuỗi lịch V2 (Tưới cây) hoặc V0 (Đèn) qua Worker để lưu lên Blynk Cloud
-  
-    
-    
-    fetch(statusUrl)
-    .then(r => r.text()) // Đọc dữ liệu thô (dạng chữ) để kiểm tra trước
+    const key = localStorage.getItem('userPass');
+
+    fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+            'action': 'get_all',
+            'device': DEVICE_NAME,
+            'key': key
+        })
+    })
+    .then(r => r.text())
     .then(text => {
         try {
-            // Chỉ khi nào dữ liệu bắt đầu bằng dấu "{" thì mới xử lý đổi màu
             if (text.trim().startsWith('{')) {
                 const data = JSON.parse(text);
-                console.log("Dữ liệu chuẩn:", data);
                 if(indicator) indicator.style.background = "#2ecc71";
-                
                 for (let p in data) {
                     let onBtn = document.getElementById(`on-${p}`);
                     let offBtn = document.getElementById(`off-${p}`);
@@ -783,18 +830,16 @@ function updateStatusOnly() {
                     }
                 }
             } else {
-                // Nếu Worker trả về chữ "Lệnh không..." thì báo lỗi nhưng không làm treo web
-                console.log("Worker chưa trả về JSON, đang chờ...:", text);
                 if(indicator) indicator.style.background = "#e67e22"; 
             }
-        } catch (err) {
-            console.log("Lỗi định dạng dữ liệu:", err);
-        }
+        } catch (err) {}
     })
     .catch(e => {
         if(indicator) indicator.style.background = "#e74c3c"; 
     });
 }
+
+
 function saveV2(btn) {
     let full = [];
     for(let i=0; i<6; i++) {
@@ -806,11 +851,20 @@ function saveV2(btn) {
         }
     }
     localStorage.setItem('v2_list_cache', JSON.stringify(listV2));
+    const key = localStorage.getItem('userPass');
 
-    let url = `${WORKER_URL}?action=update&pin=V2&value=${encodeURIComponent(JSON.stringify(full))}&device=${DEVICE_NAME}&key=${localStorage.getItem('userPass')}`;
-    
-    // Thêm (response) vào đây
-    fetch(url).then((response) => {
+    // POST nội dung y hệt bản GET
+    fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+            'action': 'update',
+            'pin': 'V2',
+            'value': JSON.stringify(full),
+            'device': DEVICE_NAME,
+            'key': key
+        })
+    }).then((response) => {
         if (response.ok) {
             btn.innerText = "✅ ĐÃ XỬ LÝ!"; 
             btn.style.background = "#2ecc71";
@@ -818,14 +872,9 @@ function saveV2(btn) {
                 btn.innerText = "GỬI & LƯU LỊCH TƯỚI"; 
                 btn.style.background = ""; 
             }, 2000);
-        } else {
-            // Nếu Worker trả về lỗi (ví dụ 401, 404, 500)
-            console.warn("Server trả về lỗi nhưng lệnh có thể đã đi:", response.status);
         }
-    })
-    .catch(e => {
-        // Chỉ hiện log ở Console, không hiện alert làm phiền người dùng
-        console.log("Lỗi mạng, nhưng ESP32 có thể đã nhận được ACK:", e);
+    }).catch(e => {
+        console.log("Lỗi mạng:", e);
     });
 }
 
@@ -855,28 +904,62 @@ function addV10() {
 
 
 function removeV2(i) {
-    if(confirm("Xóa lịch?"))
-     { listV2.splice(i, 1); 
+    if(confirm("Xóa lịch?")) { 
+        // 1. Xóa phần tử khỏi mảng listV2 (Logic cũ của bạn)
+        listV2.splice(i, 1); 
+        
+        // 2. Vẽ lại giao diện ngay lập tức
         renderUI(); 
-       saveV2({ innerText: "", style: {} });
+        
+        // 3. Gửi mảng mới lên Cloud để đồng bộ (Dùng POST y chang hàm saveV2)
+        const key = localStorage.getItem('userPass');
+        let full = [];
+        for(let j=0; j<6; j++) {
+            if(listV2[j]) {
+                let p = listV2[j].t.split(':');
+                full.push({id:j+1, h:parseInt(p[0]), m:parseInt(p[1]), d:parseInt(listV2[j].d), a:true});
+            } else {
+                full.push({id:j+1, h:0, m:0, d:0, a:false});
+            }
+        }
+        // Cập nhật bộ nhớ đệm
+        localStorage.setItem('v2_list_cache', JSON.stringify(listV2));
+
+        // Gửi lệnh POST đi
+        fetch(WORKER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                'action': 'update',
+                'pin': 'V2',
+                'value': JSON.stringify(full),
+                'device': DEVICE_NAME,
+                'key': key
+            })
+        }).then(r => {
+            console.log("Đã đồng bộ xóa lịch V2 lên Cloud.");
+        });
     }
 }
-
 function removeV10(i) {
     let item = listV10[i];
     if(confirm(`Xóa lịch ${customNames[v10Mapping[item.id]] || 'này'}?`)) {
         let realId = v10Mapping[item.id].replace("V", "");
-        
-        // Gửi lệnh đặc biệt để Slave biết đường mà xóa lịch
         let cmdDelete = `id:${realId} DELETE`; 
+        const key = localStorage.getItem('userPass'); 
 
-       const key = localStorage.getItem('userPass'); 
-
-        // SỬA TẠI ĐÂY: Thêm &key=${key}
-        const url = `${WORKER_URL}?action=update&pin=V0&value=${encodeURIComponent(cmdDelete)}&device=cay&key=${key}`;
-        
-        fetch(url).then(() => {
-            listV10.splice(i, 1); // Xóa khỏi giao diện
+        fetch(WORKER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                'action': 'update',
+                'pin': 'V0',
+                'value': cmdDelete,
+                'device': 'cay',
+                'key': key
+            })
+        }).then(() => {
+            listV10.splice(i, 1);
             localStorage.setItem('v10_list_cache', JSON.stringify(listV10));
             renderUI();
         });
@@ -904,41 +987,49 @@ async function deleteAllSchedules() {
     }
 }
 
-let isUpdating = false; // Biến chặn gửi trùng lặp
+
+let isUpdating = false; 
 function editName(p) {
     if (isUpdating) return; 
     
     let oldName = (customNames[p] || p);
     let newName = prompt("Tên mới cho " + p + ":", oldName);
     
-    if (newName && newName !== oldName) {
-        isUpdating = true;
-        
-        // 1. Cập nhật giao diện và bộ nhớ tạm ngay lập tức
-        customNames[p] = newName;
-        localStorage.setItem('last_config', JSON.stringify(customNames));
-        renderUI();
+    // Nếu người dùng nhấn Cancel hoặc không đổi tên thì thoát
+    if (!newName || newName === oldName) return;
 
-        // 2. Lấy key từ localStorage để xác thực với Worker
-        const key = localStorage.getItem('userPass'); 
+    isUpdating = true; 
 
-        // 3. Gửi lên Cloud (Đã thêm tham số &key)
-        const urlCloud = `${WORKER_URL}?action=update&pin=V0&value=${encodeURIComponent(JSON.stringify(customNames))}&device=${DEVICE_NAME}&key=${key}`;
-        
-        fetch(urlCloud)
-            .then(response => {
-                if (response.status === 401) {
-                    alert("Lỗi 401: Sai mật khẩu hoặc chưa đăng nhập!");
-                } else {
-                    console.log("Đã đồng bộ tên mới lên Cloud cho: " + p);
-                }
-                isUpdating = false;
-            })
-            .catch(err => {
-                console.error("Lỗi kết nối:", err);
-                isUpdating = false;
-            });
-    }
+    // 1. Cập nhật giao diện ngay lập tức để người dùng thấy nhanh
+    customNames[p] = newName;
+    localStorage.setItem('last_config', JSON.stringify(customNames));
+    renderUI();
+
+    // 2. Chuẩn bị dữ liệu gửi đi (V1:Tên có dấu)
+    const key = localStorage.getItem('userPass'); 
+    const dataV13 = p + ":" + newName; 
+    
+    // QUAN TRỌNG: Dùng encodeURIComponent để "bọc" tiếng Việt lại cho Worker
+    const encodedValue = encodeURIComponent(dataV13);
+    const urlV13 = `${WORKER_URL}?action=update&pin=V13&value=${encodedValue}&device=${DEVICE_NAME}&key=${key}`;
+    
+    console.log(">>> Đang gửi tên mới: " + dataV13);
+
+   console.log(">>> Đang gửi tên mới bằng POST: " + dataV13);
+
+    fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `action=update&pin=V13&value=${encodeURIComponent(dataV13)}&device=${DEVICE_NAME}&key=${key}`
+    })
+    .then(response => {
+        if (response.ok) console.log("✅ Thành công!");
+        isUpdating = false; 
+    })
+    .catch(err => {
+        console.error("❌ Lỗi:", err);
+        isUpdating = false;
+    });
 }
 function phatWifiConfig() {
     let code = prompt("MÃ XÁC THỰC:");
@@ -946,7 +1037,7 @@ function phatWifiConfig() {
     fetch('/phat_wifi_ap?auth_code=' + encodeURIComponent(code))
     .then(r => r.text()).then(txt => alert(txt)).catch(() => alert("Đang chuyển chế độ..."));
 }
-////22-1-2026 0H:48M
+////22-1-2026 0H:48Mrrrrrrrrrrrrrrrrrrrrrrr  https://gemini.google.com/app/90ef083a741b66cd
 </script>
 
 </body>
