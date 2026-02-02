@@ -56,9 +56,8 @@
 /* 3Banner giới thiệu sản phẩm */
 .product-banner {
     width: 100%;
-    height: 180px; /* Độ cao banner */
-    background: url('LINK_ANH_CUA_BAN_TAI_DAY') no-repeat center center;
-    background-size: cover;
+    height: 180px;
+    background: #3498db; /* Thay vì dùng link ảnh lỗi, ta dùng màu xanh cho sạch */
     border-radius: 0px;
     margin-bottom: 15px;
     display: flex;
@@ -282,11 +281,12 @@ body { padding-bottom: 100px !important; }
          <div class="banner-text">
             <i class="fa-solid fa-leaf"></i> Hệ Thống T@ Smart - Nâng Tầm Cuộc Sống
         </div>
+       
+       
         <div class="product-banner">
-        <img src="https://images.unsplash.com/photo-1509395176047-4a66953fd231" 
+            <img src="https://images.unsplash.com/photo-1558002038-1055907df827?w=1200" 
              style="width: 100%; height: 100%; object-fit: cover; position: absolute;">
-        
-    </div>
+        </div>
 
     <div class="card">
         <h3 style="color: #1a73e8; font-weight: 800; margin-bottom: 15px;">
@@ -353,7 +353,7 @@ body { padding-bottom: 100px !important; }
                 <input type="text" id="tg_id" style="width:100%; padding:10px; margin:8px 0 15px; border:1px solid #ddd; border-radius:8px;" placeholder="ID người nhận...">
                 
                 <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 25px;">
-                    <input type="checkbox" id="tg_active" style="width: 20px; height: 20px;" checked>
+                    <input type="checkbox" id="tg_active"  onchange="sendCmd('V14', this.checked ? 1 : 0)" style="width: 20px; height: 20px;" checked>
                     <label for="tg_active" style="color: blue; font-weight: bold; cursor: pointer;">Bật thông báo chuông</label>
                 </div>
 
@@ -375,7 +375,7 @@ body { padding-bottom: 100px !important; }
         </div>
         <div class="nav-item" id="nav-alarm" onclick="gotoPage('alarm')">
             <i class="fa-solid fa-bell"></i>
-            <span>Báo động</span>
+            <span>Thông Báo</span>
         </div>
         <div class="nav-item" onclick="logout()">
             <i class="fa-solid fa-arrow-right-from-bracket"></i>
@@ -442,19 +442,51 @@ function gotoPage(p) {
 async function saveTelegram() {
     const token = document.getElementById('tg_token').value.trim();
     const id = document.getElementById('tg_id').value.trim();
-    const active = document.getElementById('tg_active').checked ? 1 : 0;
+    const active = document.getElementById('tg_active').checked; // Lấy trạng thái đúng sai
     
     if(!token || !id) return alert("Vui lòng nhập đủ Token và Chat ID");
 
-    // Tạo chuỗi cấu hình để lưu vào Pin V0 trên chip/cloud
-    const configStr = `TG:${token}|ID:${id}|ACT:${active}`;
-    const url = `${WORKER_URL}?action=update&pin=V0&value=${encodeURIComponent(configStr)}&device=${DEVICE_NAME}`;
+    const btn = event.target;
+    btn.innerText = "⏳ ĐANG LƯU...";
+    btn.disabled = true;
 
+    // 1. Lưu vào máy người dùng để Web nhớ trạng thái ô vuông
+    localStorage.setItem('tg_config', JSON.stringify({token, id, active}));
+
+    // 2. Nếu người dùng TẮT ô vuông, Web báo luôn và không gửi gì lên Worker
+    if (!active) {
+        alert("🤫 Đã tắt thông báo. Web sẽ không gửi lệnh về Telegram.");
+        btn.innerText = "LƯU VÀ CẬP NHẬT";
+        btn.disabled = false;
+        return;
+    }
+
+    // 3. Nếu người dùng BẬT ô vuông, gửi 1 tin nhắn thử nghiệm lên Worker
+    const secret = localStorage.getItem('userPass') || "1234567";
     try {
-        await fetch(url);
-        alert("✅ Đã lưu cấu hình Telegram thành công!");
+        const response = await fetch(WORKER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                'action': 'send_tg', // Gọi lệnh gửi tin nhắn trực tiếp
+                'tgToken': token,
+                'tgId': id,
+                'msg': '✅ Thiết bị của bạn đã kết nối Telegram thành công!',
+                'key': secret,
+                'device': DEVICE_NAME
+            })
+        });
+
+        if (response.ok) {
+            alert("✅ XÁC NHẬN: Worker đã thông suốt và đã gửi tin nhắn thử!");
+        } else {
+            alert("❌ Lỗi 401: Sai mật mã User Key!");
+        }
     } catch (e) {
-        alert("❌ Lỗi kết nối, không lưu được!");
+        alert("❌ Lỗi kết nối tới Worker!");
+    } finally {
+        btn.innerText = "LƯU VÀ CẬP NHẬT";
+        btn.disabled = false;
     }
 }
 
@@ -520,8 +552,7 @@ document.addEventListener("DOMContentLoaded", function() {
     const savedTg = localStorage.getItem('tg_config');
 if(savedTg) {
     const cfg = JSON.parse(savedTg);
-    document.getElementById('tg_token').value = cfg.token;
-    document.getElementById('tg_id').value = cfg.id;
+    
     document.getElementById('tg_active').checked = cfg.active;
 }
     // 1. LẤY DỮ LIỆU TỪ BỘ NHỚ TẠM (CACHE)
@@ -679,48 +710,43 @@ function sendCmd(pin, value) {
     const onBtn = document.getElementById(`on-${pin}`);
     const offBtn = document.getElementById(`off-${pin}`);
 
-    // 1. Phản hồi màu sắc tức thì
-    if (value === 1) {
-        onBtn.className = "btn btn-on active-on";
-        offBtn.className = "btn btn-off";
-    } else {
-        onBtn.className = "btn btn-on";
-        offBtn.className = "btn btn-off active-off";
+    // 1. Hiệu ứng đổi màu nút (chỉ làm nếu là chân V1, V3...V12)
+    if (onBtn && offBtn) {
+        if (value === 1) {
+            onBtn.className = "btn btn-on active-on";
+            offBtn.className = "btn btn-off";
+        } else {
+            onBtn.className = "btn btn-on";
+            offBtn.className = "btn btn-off active-off";
+        }
     }
 
-    // 2. Logic tính thời gian chờ đúng ý bạn
-    clickCounter++; // Tăng biến đếm mỗi khi bấm
-    
-    let waitTime = 2000; // Mặc định 2s cho 1 hoặc 2 nút đầu
-    if (clickCounter > 2) {
-        waitTime = 2000 + ((clickCounter - 2) * 500); // Từ nút thứ 3 cộng thêm 0.5s
-    }
-
-    // Xóa hẹn giờ cũ của nút này nếu có (để tránh bị trùng lệnh)
-    if (pendingChecks[pin]) clearTimeout(pendingChecks[pin]);
-
-    // 3. Gửi lệnh POST
+    // 2. Gửi lệnh POST lên Worker (Cực kỳ quan trọng)
+    // Chỗ này sẽ gửi pin="V14" và value=0 hoặc 1 y hệt như V3
     fetch(WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
             'action': 'update',
-            'pin': pin,
+            'pin': pin,      // Nếu bạn bấm V3 thì pin=V3, nếu tích V14 thì pin=V14
             'value': value,
             'device': DEVICE_NAME,
             'key': key
         })
     }).then(() => {
-        // Đặt hẹn giờ kiểm tra trạng thái thực từ chip
-        pendingChecks[pin] = setTimeout(() => {
-            updateStatusOnly(); 
+        // Chỉ chạy hẹn giờ cập nhật nếu không phải là chân cấu hình V14
+        if (pin !== 'V14') {
+            clickCounter++;
+            let waitTime = clickCounter > 2 ? 2000 + ((clickCounter - 2) * 500) : 2000;
             
-            // Sau khi kiểm tra xong, giảm biến đếm nhưng không để âm
-            clickCounter--;
-            if (clickCounter < 0) clickCounter = 0;
-            
-            delete pendingChecks[pin];
-        }, waitTime);
+            if (pendingChecks[pin]) clearTimeout(pendingChecks[pin]);
+            pendingChecks[pin] = setTimeout(() => {
+                updateStatusOnly();
+                clickCounter--;
+                if (clickCounter < 0) clickCounter = 0;
+                delete pendingChecks[pin];
+            }, waitTime);
+        }
     });
 }
 
@@ -728,25 +754,46 @@ function sendCmd(pin, value) {
 function editName(p) {
     if (isUpdating) return; 
     let oldName = (customNames[p] || p);
-    let newName = prompt("Tên mới cho " + p + ":", oldName);
+    let newName = prompt("Nhập tên mới cho " + p + ":", oldName);
+    
     if (!newName || newName === oldName) return;
 
     isUpdating = true; 
+    // Cập nhật giao diện tạm thời
     customNames[p] = newName;
     localStorage.setItem('last_config', JSON.stringify(customNames));
     renderUI();
 
-    const secret = localStorage.getItem('userPass'); // Chìa khóa bí mật
-    const dataV13 = p + ":" + newName; 
-    
-    // Dùng encodeURIComponent để bảo vệ tiếng Việt có dấu
-    const encodedValue = encodeURIComponent(dataV13);
-    const urlV13 = `${WORKER_URL}?action=update&pin=V13&value=${encodedValue}&device=${DEVICE_NAME}&key=${secret}`;
+    // Đảm bảo lấy đúng Key bảo mật của Worker
+    let secret = localStorage.getItem('userPass') || "1234567"; 
 
-    fetch(urlV13).then(res => {
-        if (res.ok) console.log("✅ Đã cập nhật tên qua Worker");
-        isUpdating = false; 
-    }).catch(() => { isUpdating = false; });
+    // Chuỗi dữ liệu chuẩn để ESP32 tách (ví dụ: V3:Phòng khách)
+    const dataV13 = p + ":" + newName; 
+
+    // Gửi bằng POST để tránh lỗi ký tự đặc biệt của URL
+    const formData = new URLSearchParams();
+    formData.append('action', 'update');
+    formData.append('pin', 'V13');
+    formData.append('value', dataV13);
+    formData.append('device', DEVICE_NAME);
+    formData.append('key', secret);
+
+    fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData
+    })
+    .then(async (res) => {
+        if (res.status === 401) {
+            alert("⚠️ Lỗi 401: Sai mật khẩu bảo mật (Key)!");
+        } else if (res.ok) {
+            console.log("✅ Đã gửi V13 thành công:", dataV13);
+        } else {
+            console.log("❌ Lỗi khác:", res.status);
+        }
+    })
+    .catch(err => alert("Lỗi kết nối mạng!"))
+    .finally(() => { isUpdating = false; });
 }
 // Hàm này để cập nhật trạng thái nút và đổi màu cái đèn nhỏ trên thanh trạng thái
 
@@ -756,32 +803,46 @@ async function saveSingleV10(index, btn) {
     let item = listV10[index];
     if(!item) return;
 
-    // Lấy ID thực tế (ví dụ: V3 lấy số 3)
-    let realId = v10Mapping[item.id].replace("V", "");
-    
-    // Tạo chuỗi đúng định dạng Master đang đợi
+    // --- ĐIỀU CHỈNH ID TẠI ĐÂY ---
+    // Nếu bạn gửi 1 mà nó ra .200, tức là nó đang thiếu 2 đơn vị để thành 3 (.202)
+    // Bạn hãy thử thay đổi số 2 này thành số khác nếu Log vẫn báo sai IP
+    let realId = parseInt(item.id) + 2; 
+
+    // Chuỗi lệnh gửi đi
     let dataStr = `id:${realId} ${item.on} true ${item.off} false`;
 
     btn.innerText = "⏳";
     btn.disabled = true;
 
-    // Tìm trong hàm saveSingleV10 dòng này và sửa lại:
-const url = `${WORKER_URL}?action=update&pin=V0&value=${encodeURIComponent(dataStr)}&device=${DEVICE_NAME}&key=${localStorage.getItem('userPass')}`;
+    const key = localStorage.getItem('userPass');
 
-    try {
-        await fetch(url);
-        btn.innerText = "✅ OK";
-        btn.style.background = "#95a5a6";
-        setTimeout(() => { 
-            btn.innerText = "GỬI"; 
-            btn.style.background = "#2ecc71";
-            btn.disabled = false;
-        }, 2000);
-    } catch (err) {
-        alert("Lỗi kết nối!");
-        btn.innerText = "THỬ LẠI";
+    fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+            'action': 'update',
+            'pin': 'V0',
+            'value': dataStr,
+            'device': DEVICE_NAME, // "cay"
+            'key': key
+        })
+    }).then(response => {
+        if (response.ok) {
+            btn.innerText = "✅ OK";
+            btn.style.background = "#95a5a6";
+            // In ra console trình duyệt để bạn kiểm tra chuỗi vừa gửi
+            console.log("Web đã gửi lệnh:", dataStr); 
+            
+            setTimeout(() => { 
+                btn.innerText = "GỬI"; 
+                btn.style.background = "#2ecc71";
+                btn.disabled = false;
+            }, 2000);
+        }
+    }).catch(err => {
+        alert("Lỗi kết nối Worker!");
         btn.disabled = false;
-    }
+    });
 }
 
 function addV2() {
@@ -884,16 +945,16 @@ function addV10() {
     let off = document.getElementById('v10_off').value;
     
     if(on && off) {
-
         if (on === off) {
             alert("⚠️ Lỗi: Giờ Bật và Tắt không được trùng nhau!");
-            return; // Thoát ra luôn, không lưu
+            return;
         }
-        // Ghi đè nếu trùng ID thiết bị, hoặc thêm mới
+        // DÒNG QUAN TRỌNG NHẤT: Lọc bỏ ID cũ nếu đã tồn tại để ghi đè cái mới
         listV10 = listV10.filter(x => x.id !== id);
+        
         listV10.push({id, on, off}); 
         
-        // --- QUAN TRỌNG: Lưu vào localStorage ---
+        // Lưu vào bộ nhớ đệm trình duyệt
         localStorage.setItem('v10_list_cache', JSON.stringify(listV10));
         
         renderUI();
@@ -986,7 +1047,32 @@ async function deleteAllSchedules() {
         alert("Lỗi kết nối Worker!");
     }
 }
+function clearAllData() {
+    if(confirm("CẢNH BÁO: Bạn có chắc chắn muốn xóa sạch toàn bộ cấu hình? Việc này sẽ reset tên thiết bị và thông báo Telegram về mặc định!")) {
+        
+        // 1. Xóa sạch bộ nhớ trình duyệt (LocalStorage)
+        localStorage.clear();
 
+        // 2. Gửi lệnh tắt thông báo (V14 = 0) lên hệ thống
+        const key = localStorage.getItem('userPass') || "1234567";
+        fetch(WORKER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                'action': 'update',
+                'pin': 'V14',
+                'value': '0', // Tắt thông báo khi xóa
+                'device': DEVICE_NAME,
+                'key': key
+            })
+        });
+
+        alert("✅ Đã xóa sạch dữ liệu trên máy và tắt thông báo hệ thống!");
+        
+        // 3. Đưa người dùng về trang đăng nhập hoặc tải lại trang
+        window.location.replace('index.html');
+    }
+}
 
 let isUpdating = false; 
 function editName(p) {
@@ -1037,7 +1123,7 @@ function phatWifiConfig() {
     fetch('/phat_wifi_ap?auth_code=' + encodeURIComponent(code))
     .then(r => r.text()).then(txt => alert(txt)).catch(() => alert("Đang chuyển chế độ..."));
 }
-////22-1-2026 0H:48Mrrrrrrrrrrrrrrrrrrrrrrr  https://gemini.google.com/app/90ef083a741b66cd
+////8:39 ngay 2 thang 2-2026
 </script>
 
 </body>
