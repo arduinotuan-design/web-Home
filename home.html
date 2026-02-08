@@ -27,17 +27,72 @@
         .grid-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
         .device-img { width: 100%; height: 130px; object-fit: cover; border-radius: 2px; display: block; margin: 0 auto; }
         [id^="name-device-"] { font-size: 12px !important; font-weight: bold; margin-top: 15px !important; margin-bottom: 10px; color: #333; display: block; }
-        .btn-group { display: flex; gap: 15px; justify-content: center; margin-top: 5px; }
-        .btn { height: 26px; width: 55px; flex: none; font-size: 10px; display: inline-flex; align-items: center; justify-content: center; border-radius: 5px; font-weight: bold; }
-        .btn-on { background: var(--on-dim); color: var(--on-active); border: 1px solid var(--on-active); }
-        .btn-off { background: var(--off-dim); color: var(--off-active); border: 1px solid var(--off-active); }
-        .active-on { background: var(--on-active) !important; color: white !important; }
-        .active-off { background: var(--off-active) !important; color: white !important; }
+     
+
+
+
+    /* Tùy chỉnh lại nhóm nút cho hiện đại */
+/* Tùy chỉnh nhóm nút cách xa nhau như bạn muốn */
+/* Nhóm nút cách xa nhau 30px để không bấm nhầm */
+.btn-group { 
+    display: flex; 
+    gap: 25px; 
+    justify-content: center; 
+    margin-top: 12px; 
+}
+
+/* Nút bấm nền kính mờ */
+.btn { 
+    height: 25px; 
+    width: 50px; 
+    font-size: 10px; 
+    border-radius: 5px; 
+    font-weight: bold; 
+    display: inline-flex; 
+    align-items: center; 
+    justify-content: center; 
+    transition: all 0.2s ease;
+    border: 1px solid rgba(255, 255, 255, 0.3); /* Viền kính */
+    background: rgba(255, 255, 255, 0.1); 
+    backdrop-filter: blur(5px);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    color: #666; /* Màu chữ khi chưa chọn */
+}
+
+/* MÀU BẬT (Xanh lá - Giữ tông cũ của bạn nhưng làm 3D) */
+.active-on { 
+    background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%) !important; 
+    color: white !important; 
+    border: none;
+    box-shadow: 0 4px 12px rgba(46, 204, 113, 0.4);
+    transform: translateY(-2px); /* Nổi lên */
+}
+
+/* MÀU TẮT (Xám - Giữ tông cũ của bạn nhưng làm 3D) */
+.active-off { 
+    background: linear-gradient(135deg, #7f8c8d 0%, #34495e 100%) !important; 
+    color: white !important; 
+    border: none;
+    box-shadow: 0 4px 12px rgba(127, 140, 141, 0.4);
+    transform: translateY(-2px); /* Nổi lên */
+}
+
+/* Hiệu ứng khi ngón tay nhấn xuống */
+.btn:active {
+    transform: scale(0.92);
+    box-shadow: none;
+}
+
+
+
+
         .bottom-menu { position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: space-around; align-items: center; padding: 10px 5px 25px 5px; background: #f0f2f5; z-index: 1000; }
         .nav-item { background: white; width: 22%; height: 65px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 8px rgba(0,0,0,0.1); cursor: pointer; color: #2c3e50; transition: 0.2s; }
         .nav-item.active { color: #1a73e8; border: 1.5px solid #1a73e8; }
         .nav-item i { font-size: 20px; margin-bottom: 4px; }
         .nav-item span { font-size: 10px; font-weight: bold; }
+          .nav-item:active { transform: scale(0.9); background: #e8f0fe; }
+      
         .hidden { display: none !important; }
         .input-group { display: flex; gap: 5px; margin-bottom: 10px; }
         input, select { padding: 8px; border: 1px solid #ddd; border-radius: 5px; flex: 1; }
@@ -46,7 +101,7 @@
         .btn-del { color: red; cursor: pointer; font-weight: bold; padding: 0 10px; }
         .btn-save { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; }
         .device-img:active { transform: scale(0.95); opacity: 0.8; }
-        .nav-item:active { transform: scale(0.9); background: #e8f0fe; }
+       
         body { padding-bottom: 100px !important; }
 
         
