@@ -81,59 +81,12 @@
 
 
 
-       .bottom-menu {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    /* Giữ nguyên padding cũ của bạn */
-    padding: 10px 5px 25px 5px; 
-    /* Nền trong suốt mờ (Glassmorphism) */
-    background: rgba(255, 255, 255, 0.1); 
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    z-index: 1000;
-}
-
-.nav-item {
-    /* --- PHẦN KÍCH THƯỚC CŨ CỦA BẠN --- */
-    width: 22%; 
-    height: 65px; 
-    border-radius: 15px; /* Giảm độ bo góc một chút cho hợp với kích thước nhỏ */
-    
-    /* --- PHẦN HIỆU ỨNG TRONG SUỐT 3D --- */
-    background: rgba(255, 255, 255, 0.15); 
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    color: #ffffff; /* Chữ trắng cho sang */
-    transition: 0.2s;
-    border: 1px solid rgba(255, 255, 255, 0.2); /* Viền kính siêu mỏng */
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); /* Đổ bóng 3D nhẹ */
-}
-
-/* Khi nhấn vào nút */
-.nav-item.active {
-    background: rgba(255, 255, 255, 0.25);
-    border: 1.5px solid #1a73e8; /* Viền xanh theo màu gốc của bạn */
-    color: #1a73e8;
-    box-shadow: 0 0 10px rgba(26, 115, 232, 0.4);
-}
-
-.nav-item i {
-    font-size: 20px; /* Cỡ icon cũ */
-    margin-bottom: 4px;
-}
-
-.nav-item span {
-    font-size: 10px; /* Cỡ chữ cũ */
-    font-weight: bold;
-}
+        .bottom-menu { position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: space-around; align-items: center; padding: 10px 5px 25px 5px; background: #f0f2f5; z-index: 1000; }
+        .nav-item { background: white; width: 22%; height: 65px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 8px rgba(0,0,0,0.1); cursor: pointer; color: #2c3e50; transition: 0.2s; }
+        .nav-item.active { color: #1a73e8; border: 1.5px solid #1a73e8; }
+        .nav-item i { font-size: 20px; margin-bottom: 4px; }
+        .nav-item span { font-size: 10px; font-weight: bold; }
+          .nav-item:active { transform: scale(0.9); background: #e8f0fe; }
       
         .hidden { display: none !important; }
         .input-group { display: flex; gap: 5px; margin-bottom: 10px; }
