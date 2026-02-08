@@ -555,6 +555,7 @@ function saveAllV10(btn) {
 
 
 function sendCmd(pin, value) {
+    playClickSound();
     const key = localStorage.getItem('userPass');
     const onBtn = document.getElementById(`on-${pin}`);
     const offBtn = document.getElementById(`off-${pin}`);
@@ -901,6 +902,27 @@ function editName(p) {
         btn.innerText = "LƯU VÀ CẬP NHẬT";
         btn.disabled = false;
     }
+}
+
+
+// Hàm tạo tiếng "Cụp" khi nhấn nút
+function playClickSound() {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+
+    oscillator.type = 'sine'; // Tiếng trong
+    oscillator.frequency.setValueAtTime(150, audioCtx.currentTime); // Tần số thấp tạo tiếng trầm
+    oscillator.frequency.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+
+    gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    oscillator.start();
+    oscillator.stop(audioCtx.currentTime + 0.1);
 }
       
     </script>
