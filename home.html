@@ -928,32 +928,38 @@ function editName(p) {
     }
 }
 
-
+//1- function playClickSound() ,2-function playClickSound() ,3-function sendCmd(pin, value) {  playClickSound();
+  // 
 // Hàm tạo tiếng "Cụp" khi nhấn nút
 function playClickSound() {
     try {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const oscillator = audioCtx.createOscillator();
         const gainNode = audioCtx.createGain();
+        const filter = audioCtx.createBiquadFilter();
 
-        // Kiểu 'square' hoặc 'sawtooth' sẽ tạo tiếng đanh và to hơn 'sine'
-        oscillator.type = 'square'; 
+        // Sử dụng sóng Triangle (tam giác) để tạo độ "cứng" cho âm thanh
+        oscillator.type = 'triangle'; 
         
-        // Tần số cao hơn (600Hz) giúp tiếng kêu sắc nét hơn
-        oscillator.frequency.setValueAtTime(600, audioCtx.currentTime); 
-        oscillator.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.1);
+        // Tần số bắt đầu rất cao (1200Hz) rồi tụt nhanh xuống để tạo tiếng gõ
+        oscillator.frequency.setValueAtTime(1200, audioCtx.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.04);
 
-        // Tăng âm lượng lên (0.5 là khá to, 1.0 là tối đa)
-        gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+        // Bộ lọc cao (Highpass) để loại bỏ âm trầm lùng bùng, chỉ giữ tiếng tách thanh mảnh
+        filter.type = 'highpass';
+        filter.frequency.value = 1000;
 
-        oscillator.connect(gainNode);
+        gainNode.gain.setValueAtTime(0.6, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.04);
+
+        oscillator.connect(filter);
+        filter.connect(gainNode);
         gainNode.connect(audioCtx.destination);
 
         oscillator.start();
-        oscillator.stop(audioCtx.currentTime + 0.1);
+        oscillator.stop(audioCtx.currentTime + 0.04); // Kết thúc cực nhanh trong 0.04s
     } catch (e) {
-        console.log("Browser blocked audio");
+        console.log("Audio Error");
     }
 }
       
