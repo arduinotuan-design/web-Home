@@ -582,7 +582,8 @@ function sendCmd(pin, value) {
    // playClickSound();
 
     // Nếu value = 1 (Bật) thì kêu tiếng thanh, value = 0 (Tắt) kêu tiếng trầm hơn
-    playClickSound(value === 1 ? 900 : 600);
+    //playClickSound(value === 1 ? 900 : 600);
+    playClickSound(value); // Truyền 1 hoặc 0 vào hàm âm thanh
     const key = localStorage.getItem('userPass');
     const onBtn = document.getElementById(`on-${pin}`);
     const offBtn = document.getElementById(`off-${pin}`);
@@ -935,7 +936,6 @@ function editName(p) {
   // 
 // Hàm tạo tiếng "Cụp" khi nhấn nút
 // 1. Tạo một biến dùng chung ở ngoài hàm
-// Tạo biến dùng chung
 let sharedAudioCtx = null;
 
 function playClickSound() {
@@ -947,26 +947,37 @@ function playClickSound() {
             sharedAudioCtx.resume();
         }
 
-        const osc = sharedAudioCtx.createOscillator();
-        const gain = sharedAudioCtx.createGain();
+        const now = sharedAudioCtx.currentTime;
 
-        // 1. Dùng sóng 'triangle' nghe sẽ giống tiếng cơ khí hơn
-        osc.type = 'triangle'; 
+        // --- TIẾNG "TẠCH" SẮC (Va chạm kim loại) ---
+        const osc1 = sharedAudioCtx.createOscillator();
+        const gain1 = sharedAudioCtx.createGain();
+        osc1.type = 'square'; // Sóng vuông tạo độ sắc, đanh
+        osc1.frequency.setValueAtTime(1200, now); 
+        osc1.frequency.exponentialRampToValueAtTime(400, now + 0.04);
+        gain1.gain.setValueAtTime(0.4, now);
+        gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+        osc1.connect(gain1);
+        gain1.connect(sharedAudioCtx.destination);
 
-        // 2. Tần số khởi đầu cao (800Hz) rồi tụt nhanh xuống (100Hz) 
-        // tạo ra tiếng "tạch" sắc nét
-        osc.frequency.setValueAtTime(800, sharedAudioCtx.currentTime); 
-        osc.frequency.exponentialRampToValueAtTime(100, sharedAudioCtx.currentTime + 0.08);
+        const freqHigh = isStatusOn === 1 ? 1400 : 1000; // Bật thì tiếng cao hơn tí
+    const freqLow = isStatusOn === 1 ? 150 : 100;    // Tắt thì tiếng trầm hơn tí 
+        // --- TIẾNG "BỤP" TRẦM (Độ rỗng của vỏ nhựa) ---
+        const osc2 = sharedAudioCtx.createOscillator();
+        const gain2 = sharedAudioCtx.createGain();
+        osc2.type = 'sine'; 
+        osc2.frequency.setValueAtTime(120, now); 
+        osc2.frequency.exponentialRampToValueAtTime(40, now + 0.1);
+        gain2.gain.setValueAtTime(0.5, now);
+        gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+        osc2.connect(gain2);
+        gain2.connect(sharedAudioCtx.destination);
 
-        // 3. Tăng âm lượng lên mức cao (0.8 - 1.0)
-        gain.gain.setValueAtTime(0.8, sharedAudioCtx.currentTime); 
-        gain.gain.exponentialRampToValueAtTime(0.01, sharedAudioCtx.currentTime + 0.1);
-
-        osc.connect(gain);
-        gain.connect(sharedAudioCtx.destination);
-
-        osc.start();
-        osc.stop(sharedAudioCtx.currentTime + 0.1);
+        // Chạy cả 2 cùng lúc
+        osc1.start(now);
+        osc1.stop(now + 0.05);
+        osc2.start(now);
+        osc2.stop(now + 0.1);
         
     } catch (e) {
         console.log("Lỗi âm thanh:", e);
