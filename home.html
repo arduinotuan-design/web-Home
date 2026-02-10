@@ -960,8 +960,7 @@ function playClickSound() {
         osc1.connect(gain1);
         gain1.connect(sharedAudioCtx.destination);
 
-        const freqHigh = isStatusOn === 1 ? 1400 : 1000; // Bật thì tiếng cao hơn tí
-    const freqLow = isStatusOn === 1 ? 150 : 100;    // Tắt thì tiếng trầm hơn tí 
+       
         // --- TIẾNG "BỤP" TRẦM (Độ rỗng của vỏ nhựa) ---
         const osc2 = sharedAudioCtx.createOscillator();
         const gain2 = sharedAudioCtx.createGain();
