@@ -296,30 +296,38 @@
 // aaaaaaTạo biến dùng chung
 let sharedAudioCtx = null;
 
-function playClickSound(freq) {
+function playClickSound() {
     try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
+        if (!sharedAudioCtx) {
+            sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (sharedAudioCtx.state === 'suspended') {
+            sharedAudioCtx.resume();
+        }
 
-        // Dùng sóng vuông 'square' để tiếng kêu có độ gắt của kim loại
-        oscillator.type = 'square'; 
+        const osc = sharedAudioCtx.createOscillator();
+        const gain = sharedAudioCtx.createGain();
+
+        // 1. Dùng sóng 'triangle' nghe sẽ giống tiếng cơ khí hơn
+        osc.type = 'triangle'; 
+
+        // 2. Tần số khởi đầu cao (800Hz) rồi tụt nhanh xuống (100Hz) 
+        // tạo ra tiếng "tạch" sắc nét
+        osc.frequency.setValueAtTime(800, sharedAudioCtx.currentTime); 
+        osc.frequency.exponentialRampToValueAtTime(100, sharedAudioCtx.currentTime + 0.08);
+
+        // 3. Tăng âm lượng lên mức cao (0.8 - 1.0)
+        gain.gain.setValueAtTime(0.8, sharedAudioCtx.currentTime); 
+        gain.gain.exponentialRampToValueAtTime(0.01, sharedAudioCtx.currentTime + 0.1);
+
+        osc.connect(gain);
+        gain.connect(sharedAudioCtx.destination);
+
+        osc.start();
+        osc.stop(sharedAudioCtx.currentTime + 0.1);
         
-        // Tần số giảm cực nhanh từ freq về 1Hz trong 0.05 giây để tạo tiếng "cạch"
-        oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(1, audioCtx.currentTime + 0.05);
-
-        // Âm lượng lớn (1.0) và ngắt tiếng cực nhanh
-        gainNode.gain.setValueAtTime(1.0, audioCtx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
-
-        oscillator.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-
-        oscillator.start();
-        oscillator.stop(audioCtx.currentTime + 0.05); 
     } catch (e) {
-        console.log("Lỗi âm thanh");
+        console.log("Lỗi âm thanh:", e);
     }
 }
 
@@ -942,3 +950,5 @@ function editName(p) {
     </script>
 </body>
 </html>
+
+//am thanh
