@@ -293,41 +293,44 @@
 
 
         // Hàm tạo âm thanh công tắc cơ (Cụp)
-// Đặt biến này ra ngoài hàm để dùng chung (tránh bị treo AudioContext)
+// aaaaaaTạo biến dùng chung
 let sharedAudioCtx = null;
 
 function playClickSound() {
     try {
-        // Khởi tạo một lần duy nhất, nếu có rồi thì dùng lại
         if (!sharedAudioCtx) {
             sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
         }
-        
-        // Luôn đánh thức AudioContext nếu trình duyệt tạm dừng nó
         if (sharedAudioCtx.state === 'suspended') {
             sharedAudioCtx.resume();
         }
 
-        const oscillator = sharedAudioCtx.createOscillator();
-        const gainNode = sharedAudioCtx.createGain();
+        const osc = sharedAudioCtx.createOscillator();
+        const gain = sharedAudioCtx.createGain();
 
-        // ĐÂY LÀ THÔNG SỐ TIẾNG "CỤP" CŨ BẠN THÍCH
-        oscillator.type = 'sine'; 
-        oscillator.frequency.setValueAtTime(150, sharedAudioCtx.currentTime); 
-        oscillator.frequency.exponentialRampToValueAtTime(0.01, sharedAudioCtx.currentTime + 0.1);
+        // 1. Dùng sóng 'triangle' nghe sẽ giống tiếng cơ khí hơn
+        osc.type = 'triangle'; 
 
-        gainNode.gain.setValueAtTime(0.2, sharedAudioCtx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, sharedAudioCtx.currentTime + 0.1);
+        // 2. Tần số khởi đầu cao (800Hz) rồi tụt nhanh xuống (100Hz) 
+        // tạo ra tiếng "tạch" sắc nét
+        osc.frequency.setValueAtTime(800, sharedAudioCtx.currentTime); 
+        osc.frequency.exponentialRampToValueAtTime(100, sharedAudioCtx.currentTime + 0.08);
 
-        oscillator.connect(gainNode);
-        gainNode.connect(sharedAudioCtx.destination);
+        // 3. Tăng âm lượng lên mức cao (0.8 - 1.0)
+        gain.gain.setValueAtTime(0.8, sharedAudioCtx.currentTime); 
+        gain.gain.exponentialRampToValueAtTime(0.01, sharedAudioCtx.currentTime + 0.1);
 
-        oscillator.start();
-        oscillator.stop(sharedAudioCtx.currentTime + 0.1);
+        osc.connect(gain);
+        gain.connect(sharedAudioCtx.destination);
+
+        osc.start();
+        osc.stop(sharedAudioCtx.currentTime + 0.1);
+        
     } catch (e) {
         console.log("Lỗi âm thanh:", e);
     }
 }
+
         // Hàm chuyển trang mượt mà
         function gotoPage(p) {
     // Ẩn tất cả các trang
@@ -592,7 +595,8 @@ function saveAllV10(btn) {
 
 
 function sendCmd(pin, value) {
-    playClickSound();
+   // playClickSound();
+   playClickSound(value === 1 ? 900 : 600);
     const key = localStorage.getItem('userPass');
     const onBtn = document.getElementById(`on-${pin}`);
     const offBtn = document.getElementById(`off-${pin}`);
