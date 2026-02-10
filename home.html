@@ -931,35 +931,38 @@ function editName(p) {
 //1- function playClickSound() ,2-function playClickSound() ,3-function sendCmd(pin, value) {  playClickSound();
   // 
 // Hàm tạo tiếng "Cụp" khi nhấn nút
+// 1. Tạo một biến dùng chung ở ngoài hàm
+let sharedAudioCtx = null;
+
 function playClickSound() {
     try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-        const filter = audioCtx.createBiquadFilter();
+        // 2. Khởi tạo một lần duy nhất, nếu đã có thì dùng lại
+        if (!sharedAudioCtx) {
+            sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
 
-        // Sử dụng sóng Triangle (tam giác) để tạo độ "cứng" cho âm thanh
-        oscillator.type = 'triangle'; 
-        
-        // Tần số bắt đầu rất cao (1200Hz) rồi tụt nhanh xuống để tạo tiếng gõ
-        oscillator.frequency.setValueAtTime(1200, audioCtx.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.04);
+        // 3. Nếu AudioContext bị tạm dừng (do trình duyệt bảo mật), kích hoạt lại nó
+        if (sharedAudioCtx.state === 'suspended') {
+            sharedAudioCtx.resume();
+        }
 
-        // Bộ lọc cao (Highpass) để loại bỏ âm trầm lùng bùng, chỉ giữ tiếng tách thanh mảnh
-        filter.type = 'highpass';
-        filter.frequency.value = 1000;
+        const oscillator = sharedAudioCtx.createOscillator();
+        const gainNode = sharedAudioCtx.createGain();
 
-        gainNode.gain.setValueAtTime(0.6, audioCtx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.04);
+        oscillator.type = 'sine'; 
+        oscillator.frequency.setValueAtTime(150, sharedAudioCtx.currentTime); 
+        oscillator.frequency.exponentialRampToValueAtTime(0.01, sharedAudioCtx.currentTime + 0.1);
 
-        oscillator.connect(filter);
-        filter.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
+        gainNode.gain.setValueAtTime(0.2, sharedAudioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, sharedAudioCtx.currentTime + 0.1);
+
+        oscillator.connect(gainNode);
+        gainNode.connect(sharedAudioCtx.destination);
 
         oscillator.start();
-        oscillator.stop(audioCtx.currentTime + 0.04); // Kết thúc cực nhanh trong 0.04s
+        oscillator.stop(sharedAudioCtx.currentTime + 0.1);
     } catch (e) {
-        console.log("Audio Error");
+        console.log("Lỗi âm thanh:", e);
     }
 }
       
