@@ -293,26 +293,39 @@
 
 
         // Hàm tạo âm thanh công tắc cơ (Cụp)
+// Đặt biến này ra ngoài hàm để dùng chung (tránh bị treo AudioContext)
+let sharedAudioCtx = null;
+
 function playClickSound() {
     try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
+        // Khởi tạo một lần duy nhất, nếu có rồi thì dùng lại
+        if (!sharedAudioCtx) {
+            sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        
+        // Luôn đánh thức AudioContext nếu trình duyệt tạm dừng nó
+        if (sharedAudioCtx.state === 'suspended') {
+            sharedAudioCtx.resume();
+        }
 
+        const oscillator = sharedAudioCtx.createOscillator();
+        const gainNode = sharedAudioCtx.createGain();
+
+        // ĐÂY LÀ THÔNG SỐ TIẾNG "CỤP" CŨ BẠN THÍCH
         oscillator.type = 'sine'; 
-        oscillator.frequency.setValueAtTime(150, audioCtx.currentTime); 
-        oscillator.frequency.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+        oscillator.frequency.setValueAtTime(150, sharedAudioCtx.currentTime); 
+        oscillator.frequency.exponentialRampToValueAtTime(0.01, sharedAudioCtx.currentTime + 0.1);
 
-        gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+        gainNode.gain.setValueAtTime(0.2, sharedAudioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, sharedAudioCtx.currentTime + 0.1);
 
         oscillator.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
+        gainNode.connect(sharedAudioCtx.destination);
 
         oscillator.start();
-        oscillator.stop(audioCtx.currentTime + 0.1);
+        oscillator.stop(sharedAudioCtx.currentTime + 0.1);
     } catch (e) {
-        console.log("Trình duyệt chặn âm thanh tự động");
+        console.log("Lỗi âm thanh:", e);
     }
 }
         // Hàm chuyển trang mượt mà
@@ -579,11 +592,7 @@ function saveAllV10(btn) {
 
 
 function sendCmd(pin, value) {
-   // playClickSound();
-
-    // Nếu value = 1 (Bật) thì kêu tiếng thanh, value = 0 (Tắt) kêu tiếng trầm hơn
-    //playClickSound(value === 1 ? 900 : 600);
-    playClickSound(value); // Truyền 1 hoặc 0 vào hàm âm thanh
+    playClickSound();
     const key = localStorage.getItem('userPass');
     const onBtn = document.getElementById(`on-${pin}`);
     const offBtn = document.getElementById(`off-${pin}`);
@@ -932,56 +941,7 @@ function editName(p) {
     }
 }
 
-//1- function playClickSound() ,2-function playClickSound() ,3-function sendCmd(pin, value) {  playClickSound();
-  // 
-// Hàm tạo tiếng "Cụp" khi nhấn nút
-// 1. Tạo một biến dùng chung ở ngoài hàm
-let sharedAudioCtx = null;
 
-function playClickSound() {
-    try {
-        if (!sharedAudioCtx) {
-            sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        if (sharedAudioCtx.state === 'suspended') {
-            sharedAudioCtx.resume();
-        }
-
-        const now = sharedAudioCtx.currentTime;
-
-        // --- TIẾNG "TẠCH" SẮC (Va chạm kim loại) ---
-        const osc1 = sharedAudioCtx.createOscillator();
-        const gain1 = sharedAudioCtx.createGain();
-        osc1.type = 'square'; // Sóng vuông tạo độ sắc, đanh
-        osc1.frequency.setValueAtTime(1200, now); 
-        osc1.frequency.exponentialRampToValueAtTime(400, now + 0.04);
-        gain1.gain.setValueAtTime(0.4, now);
-        gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
-        osc1.connect(gain1);
-        gain1.connect(sharedAudioCtx.destination);
-
-       
-        // --- TIẾNG "BỤP" TRẦM (Độ rỗng của vỏ nhựa) ---
-        const osc2 = sharedAudioCtx.createOscillator();
-        const gain2 = sharedAudioCtx.createGain();
-        osc2.type = 'sine'; 
-        osc2.frequency.setValueAtTime(120, now); 
-        osc2.frequency.exponentialRampToValueAtTime(40, now + 0.1);
-        gain2.gain.setValueAtTime(0.5, now);
-        gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-        osc2.connect(gain2);
-        gain2.connect(sharedAudioCtx.destination);
-
-        // Chạy cả 2 cùng lúc
-        osc1.start(now);
-        osc1.stop(now + 0.05);
-        osc2.start(now);
-        osc2.stop(now + 0.1);
-        
-    } catch (e) {
-        console.log("Lỗi âm thanh:", e);
-    }
-}
       
     </script>
 </body>
