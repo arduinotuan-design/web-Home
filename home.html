@@ -541,19 +541,16 @@ function syncV10ToESP() {
         // --- THAY THẾ HÀM NÀY VÀO FILE HTML CỦA BẠN ---
 // --- THAY THẾ HÀM NÀY VÀO FILE HTML CỦA BẠN ---
 function saveAllV10(btn) {
-    // 1. Lưu lại nội dung nút để phục hồi sau khi xong
     const originalText = "<i class='fa-solid fa-paper-plane'></i> GỬI LỊCH LÊN ESP32";
-    
-    // 2. Hiệu ứng chờ, khóa nút để tránh bấm liên tục
-    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> ĐANG ĐỢI PHẢN HỒI...";
+    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> ĐANG GỬI...";
     btn.disabled = true;
 
-    // 3. Logic lấy dữ liệu lịch từ các phòng (giữ nguyên của bạn)
     let roomId = document.getElementById('v10_id').value;
     let roomSchedules = listV10.filter(sch => String(sch.id) === String(roomId));
     let realId = parseInt(roomId) + 2;
     let combinedData = "";
     
+    // Đảm bảo luôn gửi đủ 3 slot để xóa trắng các slot thừa trên ESP32
     for (let i = 0; i < 3; i++) {
         if (roomSchedules[i]) {
             combinedData += `id:${realId} ${roomSchedules[i].on} true ${roomSchedules[i].off} false;`;
@@ -564,7 +561,6 @@ function saveAllV10(btn) {
     
     const key = localStorage.getItem('userPass');
 
-    // 4. Gửi lệnh chính lên Cloud
     fetch(WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -574,17 +570,23 @@ function saveAllV10(btn) {
     })
     .then(r => {
         if(r.ok) {
-            // CHỈ KHI NÀY WEB MỚI THỨC DẬY ĐỂ KIỂM TRA PHẢN HỒI
-            // Gọi hàm batDauDinhThoiKiemTra mà mình đã viết ở trên
-            batDauDinhThoiKiemTra(btn, originalText);
+            // Hiệu ứng thành công tạm thời
+            btn.innerHTML = "<i class='fa-solid fa-check'></i> THÀNH CÔNG!";
+            btn.style.background = "#27ae60";
+            
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+                btn.style.background = ""; // Trả lại màu cũ
+                alert("Đã gửi lịch thành công tới thiết bị!");
+            }, 2000);
         } else {
-            alert("❌ Lỗi mạng, không gửi được!");
-            btn.disabled = false;
-            btn.innerHTML = originalText;
+            throw new Error("Server trả về lỗi");
         }
     })
-    .catch(() => {
-        alert("❌ Mất kết nối!");
+    .catch(err => {
+        console.error(err);
+        alert("❌ Lỗi mạng: Không thể kết nối tới Worker hoặc Cloud!");
         btn.disabled = false;
         btn.innerHTML = originalText;
     });
@@ -996,4 +998,4 @@ function ketThucQuet(btn, originalText, message, color) {
 </body>
 </html>
 
-//moi
+//moi2
