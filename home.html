@@ -542,14 +542,14 @@ function syncV10ToESP() {
 // --- THAY THẾ HÀM NÀY VÀO FILE HTML CỦA BẠN ---
 function saveAllV10(btn) {
     const originalText = "<i class='fa-solid fa-paper-plane'></i> GỬI LỊCH LÊN ESP32";
-    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> ĐANG XỬ LÝ...";
+    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> ĐANG GỬI...";
     btn.disabled = true;
 
+    // 1. Chuẩn bị dữ liệu gửi (như cũ)
     let roomId = document.getElementById('v10_id').value;
     let roomSchedules = listV10.filter(sch => String(sch.id) === String(roomId));
     let realId = parseInt(roomId) + 2;
     let combinedData = "";
-    
     for (let i = 0; i < 3; i++) {
         if (roomSchedules[i]) {
             combinedData += `id:${realId} ${roomSchedules[i].on} true ${roomSchedules[i].off} false;`;
@@ -560,7 +560,7 @@ function saveAllV10(btn) {
     
     const key = localStorage.getItem('userPass');
 
-    // 1. Gửi lịch lên Blynk
+    // 2. Lệnh gửi lịch lên V0
     fetch(WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -569,57 +569,43 @@ function saveAllV10(btn) {
         })
     })
     .then(() => {
-        let startTime = Date.now();
-        
-        // 2. Tạo vòng lặp kiểm tra (Check liên tục mỗi 0.5 giây)
-        let checkInterval = setInterval(() => {
-            let elapsed = Date.now() - startTime;
-
-            // Nếu quá 3 giây mà chưa thấy OK/FAIL thì dừng lại báo lỗi
-            if (elapsed > 3000) {
-                clearInterval(checkInterval);
-                alert("FAIL: Quá 3 giây chip không phản hồi!");
-                btn.disabled = false;
-                btn.innerHTML = originalText;
-                return;
-            }
-
-            // Lấy dữ liệu V0 về xem có chữ OK/FAIL chưa
+        // 3. Đợi một chút cực ngắn (ví dụ 0.8s) để chắc chắn ESP32 đã ghi chữ OK đè lên
+        setTimeout(() => {
+            // Lấy giá trị mới nhất của V0 về để "đọc"
             fetch(`${WORKER_URL}?action=get&pin=V0&device=${DEVICE_NAME}&key=${key}`)
             .then(res => res.text())
             .then(val => {
-                let status = val.trim().toUpperCase();
+                let status = val.trim().toUpperCase(); // Biến chữ nhận được thành chữ HOA để so sánh
 
                 if (status === "OK") {
-                    clearInterval(checkInterval); // Dừng kiểm tra ngay lập tức
+                    // NẾU ĐỌC ĐƯỢC CHỮ OK
                     btn.innerHTML = "THÀNH CÔNG!";
                     btn.style.background = "#27ae60";
 
-                    // Về trang chủ ngay
+                    // TỰ ĐỘNG ĐÓNG TRANG (ĐI NGỦ)
                     setTimeout(() => {
-                        gotoPage('home');
+                        gotoPage('home'); 
                         btn.disabled = false;
                         btn.innerHTML = originalText;
-                        btn.style.background = "";
+                        btn.style.background = ""; 
                     }, 500);
 
                 } else if (status === "FAIL") {
-                    clearInterval(checkInterval);
-                    alert("THẤT BẠI: Chip báo FAIL!");
+                    // NẾU ĐỌC ĐƯỢC CHỮ FAIL
+                    alert("THẤT BẠI: Thiết bị báo FAIL!");
                     btn.disabled = false;
                     btn.innerHTML = originalText;
                 }
-                // Nếu vẫn là chuỗi lịch thì vòng lặp tiếp tục chạy...
             });
-        }, 500); // Tần suất kiểm tra cực nhanh (0.5 giây/lần)
+        }, 3000); // 0.8 giây là thời gian đủ để chip phản hồi xong
     })
     .catch(err => {
-        alert("FAIL: Lỗi mạng!");
+        alert("Lỗi kết nối!");
         btn.disabled = false;
         btn.innerHTML = originalText;
     });
 }
-// --- THAY THẾ HÀM NÀY VÀO FILE HTML CỦA BẠN ---
+        
 
         // --- CÁC HÀM CŨ GIỮ NGUYÊN ---
 
