@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -445,16 +446,27 @@ function playClickSound() {
     document.getElementById('v10_list').innerHTML = html || '<div style="color:#ccc;text-align:center; padding:20px;">Chưa có lịch được tạo cho phòng này</div>';
 }
 
-        function addV10() {
-            let roomId = document.getElementById('v10_id').value;
-            let on = document.getElementById('v10_on').value;
-            let off = document.getElementById('v10_off').value;
-            if(!on || !off) return alert("Chọn đủ giờ!");
-            
-            listV10.push({id: roomId, on: on, off: off});
-            localStorage.setItem('v10_list_cache', JSON.stringify(listV10));
-            loadRoomSchedules();
-        }
+      function addV10() {
+    let roomId = document.getElementById('v10_id').value;
+    let on = document.getElementById('v10_on').value;
+    let off = document.getElementById('v10_off').value;
+
+    if (!on || !off) return alert("Chọn đủ giờ!");
+
+    // 🔥 PHẢI CÓ DÒNG NÀY
+    let roomSchedules = listV10.filter(x => String(x.id) === String(roomId));
+
+    // 🔴 CHẶN NGAY TẠI ĐÂY
+    if (roomSchedules.length >= 3) {
+        alert("❌ Bạn chỉ hẹn tối đa 3 lịch thôi!");
+        return;
+    }
+
+    listV10.push({id: roomId, on: on, off: off});
+    localStorage.setItem('v10_list_cache', JSON.stringify(listV10));
+
+    loadRoomSchedules();
+}
         
 
 // --- HÀM XÓA ĐÃ SỬA LẠI THEO ĐÚNG Ý BẠN ---
@@ -529,64 +541,52 @@ function syncV10ToESP() {
         // --- THAY THẾ HÀM NÀY VÀO FILE HTML CỦA BẠN ---
 // --- THAY THẾ HÀM NÀY VÀO FILE HTML CỦA BẠN ---
 function saveAllV10(btn) {
-    btn.innerText = "⏳ ĐANG GỬI...";
+    // 1. Lưu lại nội dung nút để phục hồi sau khi xong
+    const originalText = "<i class='fa-solid fa-paper-plane'></i> GỬI LỊCH LÊN ESP32";
+    
+    // 2. Hiệu ứng chờ, khóa nút để tránh bấm liên tục
+    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> ĐANG ĐỢI PHẢN HỒI...";
     btn.disabled = true;
 
-    // 1. Lấy đèn đang được chọn
+    // 3. Logic lấy dữ liệu lịch từ các phòng (giữ nguyên của bạn)
     let roomId = document.getElementById('v10_id').value;
-    
-    // 2. Lấy danh sách lịch hiện có trên Web cho phòng này
     let roomSchedules = listV10.filter(sch => String(sch.id) === String(roomId));
-    
-    // 3. QUAN TRỌNG: Tạo chuỗi dữ liệu luôn đủ 3 lịch (để ghi đè/xóa lịch cũ trên ESP32)
     let realId = parseInt(roomId) + 2;
     let combinedData = "";
     
     for (let i = 0; i < 3; i++) {
         if (roomSchedules[i]) {
-            // Nếu có lịch trên Web: Gửi giờ thật
-            let sch = roomSchedules[i];
-            combinedData += `id:${realId} ${sch.on} true ${sch.off} false;`;
+            combinedData += `id:${realId} ${roomSchedules[i].on} true ${roomSchedules[i].off} false;`;
         } else {
-            // Nếu không có (đã bị xóa hoặc chưa đặt): Gửi lệnh RESET để ESP32 xóa hẳn
             combinedData += `id:${realId} 00:00 false 00:00 false;`;
         }
     }
     
-    console.log(`>>> Gửi tổng hợp (3 gói) tới V0:`, combinedData);
-
     const key = localStorage.getItem('userPass');
 
-    // 4. Gửi lên Cloud
+    // 4. Gửi lệnh chính lên Cloud
     fetch(WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
-            'action': 'update',
-            'pin': 'V0',
-            'value': combinedData,
-            'device': DEVICE_NAME,
-            'key': key
+            'action': 'update', 'pin': 'V0', 'value': combinedData, 'device': DEVICE_NAME, 'key': key
         })
     })
     .then(r => {
         if(r.ok) {
-            alert(`✅ Đã đồng bộ 3 lịch cho Phòng ${roomId} (Bao gồm xóa lịch cũ nếu có)`);
-            btn.innerText = "✅ OK";
-            btn.style.background = "#95a5a6";
-            setTimeout(() => {
-                btn.innerText = "GỬI & LƯU LỊCH ĐÈN LÊN ESP32";
-                btn.style.background = "";                
-                btn.disabled = false;
-            }, 2000);
+            // CHỈ KHI NÀY WEB MỚI THỨC DẬY ĐỂ KIỂM TRA PHẢN HỒI
+            // Gọi hàm batDauDinhThoiKiemTra mà mình đã viết ở trên
+            batDauDinhThoiKiemTra(btn, originalText);
         } else {
-            alert("❌ Lỗi gửi dữ liệu!");
+            alert("❌ Lỗi mạng, không gửi được!");
             btn.disabled = false;
+            btn.innerHTML = originalText;
         }
     })
-    .catch(e => {
-        alert("❌ Lỗi mạng!");
+    .catch(() => {
+        alert("❌ Mất kết nối!");
         btn.disabled = false;
+        btn.innerHTML = originalText;
     });
 }
 // --- THAY THẾ HÀM NÀY VÀO FILE HTML CỦA BẠN ---
@@ -707,41 +707,31 @@ function sendCmd(pin, value) {
     
     
 }
-      function saveV2(btn) {
-    let full = [];
-    for(let i=0; i<6; i++) {
-        if(listV2[i]) {
-            let p = listV2[i].t.split(':');
-            full.push({id:i+1, h:parseInt(p[0]), m:parseInt(p[1]), d:parseInt(listV2[i].d), a:true});
-        } else {
-            full.push({id:i+1, h:0, m:0, d:0, a:false});
-        }
-    }
-    localStorage.setItem('v2_list_cache', JSON.stringify(listV2));
-    const key = localStorage.getItem('userPass');
+    function saveV2(btn) {
+    // Lưu lại tên nút cũ để tí nữa hiện lại
+    const originalText = btn.innerHTML; 
+    
+    // Hiệu ứng chờ đợi
+    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> ĐANG GỬI...";
+    btn.disabled = true;
 
-    // POST nội dung y hệt bản GET
+    // ... (Logic gom dữ liệu v2Data của bạn) ...
+
+    const key = localStorage.getItem('userPass');
     fetch(WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
-            'action': 'update',
-            'pin': 'V2',
-            'value': JSON.stringify(full),
-            'device': DEVICE_NAME,
-            'key': key
+            'action': 'update', 'pin': 'V2', 'value': v2Data, 'device': DEVICE_NAME, 'key': key
         })
-    }).then((response) => {
-        if (response.ok) {
-            btn.innerText = "✅ ĐÃ XỬ LÝ!"; 
-            btn.style.background = "#2ecc71";
-            setTimeout(() => { 
-                btn.innerText = "GỬI & LƯU LỊCH TƯỚI"; 
-                btn.style.background = ""; 
-            }, 2000);
+    }).then(r => {
+        if(r.ok) {
+            // CHỈ KHI GỬI THÀNH CÔNG MỚI BẮT ĐẦU ĐỊNH THỜI 3 GIÂY
+            batDauDinhThoiKiemTra(btn, originalText);
+        } else {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
         }
-    }).catch(e => {
-        console.log("Lỗi mạng:", e);
     });
 }
 
@@ -946,9 +936,64 @@ function editName(p) {
 }
 
 
+
+
+
+let checkV20Interval = null; // Biến này để quản lý vòng lặp quét
+
+function batDauDinhThoiKiemTra(btn, originalText) {
+    const key = localStorage.getItem('userPass');
+    
+    // Nếu đang có vòng quét cũ thì xóa đi
+    if (checkV20Interval) clearInterval(checkV20Interval);
+
+    // Bắt đầu đợi đúng 3 giây (để chip xử lý xong) rồi mới kiểm tra
+    checkV20Interval = setInterval(() => {
+        
+        // Dừng ngay vòng lặp, chỉ quét 1 lần duy nhất để "yên bình"
+        clearInterval(checkV20Interval);
+        checkV20Interval = null; 
+
+        fetch(`${WORKER_URL}?action=get&pin=V20&device=${DEVICE_NAME}&key=${key}`)
+            .then(r => r.text())
+            .then(status => {
+                // Xóa bỏ dấu ngoặc kép nếu có từ phản hồi
+                status = status.trim().replace(/"/g, "");
+
+                if (status === "OK") {
+                    ketThucQuet(btn, originalText, "✅ THÀNH CÔNG", "#2ecc71");
+                } else {
+                    // Nếu phản hồi không phải OK (có thể là FAIL hoặc giá trị cũ)
+                    ketThucQuet(btn, originalText, "❌ LỖI PHẢN HỒI", "#e74c3c");
+                }
+            })
+            .catch(() => {
+                ketThucQuet(btn, originalText, "🌐 LỖI MẠNG", "#e74c3c");
+            });
+            
+    }, 3000); // Đợi đúng 3 giây rồi quét
+}
+
+function ketThucQuet(btn, originalText, message, color) {
+    if (checkV20Interval) {
+        clearInterval(checkV20Interval);
+        checkV20Interval = null; 
+    }
+    btn.innerHTML = message;
+    btn.style.background = color;
+
+    // Sau 1.5 giây thì trả nút về trạng thái bình thường
+    setTimeout(() => {
+        btn.innerHTML = originalText;
+        btn.style.background = ""; // Trả về màu gradient gốc trong CSS
+        btn.disabled = false;
+    }, 1500);
+}
+
+
       
     </script>
 </body>
 </html>
 
-//am thanh
+//moi
