@@ -541,71 +541,96 @@ function syncV10ToESP() {
         // --- THAY THẾ HÀM NÀY VÀO FILE HTML CỦA BẠN ---
 // --- THAY THẾ HÀM NÀY VÀO FILE HTML CỦA BẠN ---
 function saveAllV10(btn) {
-    const originalText = "<i class='fa-solid fa-paper-plane'></i> GỬI LỊCH LÊN ESP32";
-    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> ĐANG GỬI...";
+    btn.innerText = "⏳ ĐANG GỬI...";
     btn.disabled = true;
 
-    // 1. Chuẩn bị dữ liệu gửi (như cũ)
+    // 1. Lấy đèn đang được chọn
     let roomId = document.getElementById('v10_id').value;
+    
+    // 2. Lấy danh sách lịch hiện có trên Web cho phòng này
     let roomSchedules = listV10.filter(sch => String(sch.id) === String(roomId));
+    
+    // 3. QUAN TRỌNG: Tạo chuỗi dữ liệu (Giữ nguyên logic của bạn)
     let realId = parseInt(roomId) + 2;
     let combinedData = "";
+    
     for (let i = 0; i < 3; i++) {
         if (roomSchedules[i]) {
-            combinedData += `id:${realId} ${roomSchedules[i].on} true ${roomSchedules[i].off} false;`;
+            let sch = roomSchedules[i];
+            combinedData += `id:${realId} ${sch.on} true ${sch.off} false;`;
         } else {
             combinedData += `id:${realId} 00:00 false 00:00 false;`;
         }
     }
     
+    console.log(`>>> Gửi tổng hợp (3 gói) tới V0:`, combinedData);
     const key = localStorage.getItem('userPass');
 
-    // 2. Lệnh gửi lịch lên V0
+    // 4. Gửi lên Cloud bằng POST (Giữ nguyên cấu trúc của bạn)
     fetch(WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
-            'action': 'update', 'pin': 'V0', 'value': combinedData, 'device': DEVICE_NAME, 'key': key
+            'action': 'update',
+            'pin': 'V0',
+            'value': combinedData,
+            'device': DEVICE_NAME,
+            'key': key
         })
     })
-    .then(() => {
-        // 3. Đợi một chút cực ngắn (ví dụ 0.8s) để chắc chắn ESP32 đã ghi chữ OK đè lên
-        setTimeout(() => {
-            // Lấy giá trị mới nhất của V0 về để "đọc"
-            fetch(`${WORKER_URL}?action=get&pin=V0&device=${DEVICE_NAME}&key=${key}`)
-            .then(res => res.text())
-            .then(val => {
-                let status = val.trim().toUpperCase(); // Biến chữ nhận được thành chữ HOA để so sánh
+    .then(r => {
+        if(r.ok) {
+            // --- BẮT ĐẦU CHƠI CHIÊU CHẠY NGẦM 3S ---
+            let timer = 0;
+            btn.innerText = "⏳ ĐANG ĐỢI PHẢN HỒI...";
 
-                if (status === "OK") {
-                    // NẾU ĐỌC ĐƯỢC CHỮ OK
-                    btn.innerHTML = "THÀNH CÔNG!";
-                    btn.style.background = "#27ae60";
+            let thamtu = setInterval(() => {
+                timer += 500;
 
-                    // TỰ ĐỘNG ĐÓNG TRANG (ĐI NGỦ)
-                    setTimeout(() => {
-                        gotoPage('home'); 
-                        btn.disabled = false;
-                        btn.innerHTML = originalText;
-                        btn.style.background = ""; 
-                    }, 500);
+                // Lệnh GET để kiểm tra V0 xem ESP32 đã ghi đè OK/FAIL chưa
+                fetch(`${WORKER_URL}?action=get&pin=V0&device=${DEVICE_NAME}&key=${key}`)
+                .then(res => res.text())
+                .then(val => {
+                    let status = val.trim().toUpperCase();
 
-                } else if (status === "FAIL") {
-                    // NẾU ĐỌC ĐƯỢC CHỮ FAIL
-                    alert("THẤT BẠI: Thiết bị báo FAIL!");
-                    btn.disabled = false;
-                    btn.innerHTML = originalText;
-                }
-            });
-        }, 3000); // 0.8 giây là thời gian đủ để chip phản hồi xong
+                    // Nếu thấy OK/FAIL sớm (ví dụ 1s) thì thoát luôn
+                    if (status === "OK" || status === "FAIL") {
+                        clearInterval(thamtu);
+                        alert(status === "OK" ? "✅ THÀNH CÔNG!" : "❌ THIẾT BỊ BÁO LỖI!");
+                        ketThuc(btn, status === "OK" ? "✅ XONG" : "❌ LỖI");
+                    } 
+                    // Nếu quá 3s mà không thấy gì thì "ngủ"
+                    else if (timer >= 3000) {
+                        clearInterval(thamtu);
+                        alert("⚠️ Quá thời gian nhưng đã gửi lệnh. Hãy kiểm tra thiết bị!");
+                        ketThuc(btn, "⚠️ TIMEOUT");
+                    }
+                });
+            }, 500);
+            // --- KẾT THÚC CHIÊU ---
+        } else {
+            alert("❌ Lỗi gửi dữ liệu!");
+            btn.disabled = false;
+            btn.innerText = "GỬI & LƯU LỊCH ĐÈN LÊN ESP32";
+        }
     })
-    .catch(err => {
-        alert("Lỗi kết nối!");
+    .catch(e => {
+        alert("❌ Lỗi mạng!");
         btn.disabled = false;
-        btn.innerHTML = originalText;
+        btn.innerText = "GỬI & LƯU LỊCH ĐÈN LÊN ESP32";
     });
 }
-        
+
+// Hàm phụ để reset nút bấm cho gọn code
+function ketThuc(btn, message) {
+    btn.innerText = message;
+    btn.style.background = "#95a5a6";
+    setTimeout(() => {
+        btn.innerText = "GỬI & LƯU LỊCH ĐÈN LÊN ESP32";
+        btn.style.background = "";                
+        btn.disabled = false;
+    }, 2000);
+}    
 
         // --- CÁC HÀM CŨ GIỮ NGUYÊN ---
 
