@@ -542,15 +542,17 @@ function syncV10ToESP() {
 // --- THAY THẾ HÀM NÀY VÀO FILE HTML CỦA BẠN ---
 function saveAllV10(btn) {
     const originalText = "<i class='fa-solid fa-paper-plane'></i> GỬI LỊCH LÊN ESP32";
-    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> ĐANG GỬI...";
+    
+    // Giao diện lúc đang gửi
+    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> ĐANG XỬ LÝ...";
     btn.disabled = true;
 
+    // 1. Lấy dữ liệu từ giao diện
     let roomId = document.getElementById('v10_id').value;
     let roomSchedules = listV10.filter(sch => String(sch.id) === String(roomId));
     let realId = parseInt(roomId) + 2;
     let combinedData = "";
     
-    // Gom dữ liệu lịch
     for (let i = 0; i < 3; i++) {
         if (roomSchedules[i]) {
             combinedData += `id:${realId} ${roomSchedules[i].on} true ${roomSchedules[i].off} false;`;
@@ -561,6 +563,7 @@ function saveAllV10(btn) {
     
     const key = localStorage.getItem('userPass');
 
+    // 2. Gửi chuỗi lịch lên Blynk (qua Cloud/Worker)
     fetch(WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -572,39 +575,53 @@ function saveAllV10(btn) {
             'key': key
         })
     })
-    .then(response => {
-        // Đọc nội dung text trả về từ Server (OK hoặc FAIL)
-        return response.text();
-    })
-    .then(data => {
-        // ĐỢI ĐÚNG 3 GIÂY ĐỂ XÁC NHẬN TRẠNG THÁI
+    .then(() => {
+        // 3. ĐỢI 3 GIÂY ĐỂ HỆ THỐNG TỰ ĐỘNG ĐẨY XUỐNG 32 VÀ NHẬN PHẢN HỒI OK/FAIL
         setTimeout(() => {
-            if (data.includes("OK")) {
-                // --- TRƯỜNG HỢP HIỂU LÀ OK ---
-                btn.innerHTML = "<i class='fa-solid fa-check'></i> THÀNH CÔNG!";
-                btn.style.background = "#27ae60";
-                
-                // Tự động đóng trang lịch sau 1s để "đi ngủ"
-                setTimeout(() => {
-                    gotoPage('home'); 
+            
+            // 4. KIỂM TRA LẠI CHÂN V0 XEM ESP32 ĐÃ TRẢ VỀ CHỮ GÌ
+            fetch(`${WORKER_URL}?action=get&pin=V0&device=${DEVICE_NAME}&key=${key}`)
+            .then(res => res.text())
+            .then(val => {
+                let status = val.trim().toUpperCase(); // Loại bỏ khoảng trắng và viết hoa
+
+                if (status === "OK") {
+                    // Nếu Web đọc được chữ OK -> Thành công
+                    btn.innerHTML = "<i class='fa-solid fa-check'></i> THÀNH CÔNG!";
+                    btn.style.background = "#27ae60";
+
+                    // Tự động quay về trang chủ (đi ngủ) sau khi thành công
+                    setTimeout(() => {
+                        gotoPage('home'); 
+                        btn.disabled = false;
+                        btn.innerHTML = originalText;
+                        btn.style.background = ""; 
+                    }, 1000);
+
+                } else if (status === "FAIL") {
+                    // Nếu Web đọc được chữ FAIL
+                    alert("THẤT BẠI: Thiết bị phản hồi FAIL (Lỗi lưu lịch)!");
                     btn.disabled = false;
                     btn.innerHTML = originalText;
-                    btn.style.background = ""; 
-                }, 1000);
+                    btn.style.background = "#e74c3c";
 
-            } else {
-                // --- TRƯỜNG HỢP HIỂU LÀ FAIL (Dù có phản hồi nhưng nội dung báo lỗi) ---
-                alert("FAIL: ESP32 phản hồi lỗi hoặc sai cấu trúc!");
+                } else {
+                    // Nếu sau 3s mà V0 vẫn là chuỗi lịch, chưa thấy OK/FAIL
+                    alert("LỖI: Quá thời gian chờ phản hồi từ ESP32!");
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+            })
+            .catch(() => {
+                alert("FAIL: Lỗi kết nối mạng khi kiểm tra phản hồi!");
                 btn.disabled = false;
                 btn.innerHTML = originalText;
-                btn.style.background = "#e74c3c"; // Đổi sang màu đỏ báo lỗi
-            }
-        }, 3000);
+            });
+
+        }, 3000); // 3 giây chờ đợi phản hồi vòng về
     })
     .catch(err => {
-        // --- TRƯỜNG HỢP FAIL DO MẤT MẠNG HOẶC SERVER SẬP ---
-        console.error(err);
-        alert("FAIL: Lỗi kết nối mạng, không thể gửi lịch!");
+        alert("FAIL: Không thể gửi dữ liệu lên Cloud!");
         btn.disabled = false;
         btn.innerHTML = originalText;
     });
