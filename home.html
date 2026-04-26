@@ -550,7 +550,7 @@ function saveAllV10(btn) {
     let realId = parseInt(roomId) + 2;
     let combinedData = "";
     
-    // Đảm bảo luôn gửi đủ 3 slot để xóa trắng các slot thừa trên ESP32
+    // Gom dữ liệu lịch
     for (let i = 0; i < 3; i++) {
         if (roomSchedules[i]) {
             combinedData += `id:${realId} ${roomSchedules[i].on} true ${roomSchedules[i].off} false;`;
@@ -565,28 +565,46 @@ function saveAllV10(btn) {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
-            'action': 'update', 'pin': 'V0', 'value': combinedData, 'device': DEVICE_NAME, 'key': key
+            'action': 'update', 
+            'pin': 'V0', 
+            'value': combinedData, 
+            'device': DEVICE_NAME, 
+            'key': key
         })
     })
-    .then(r => {
-        if(r.ok) {
-            // Hiệu ứng thành công tạm thời
-            btn.innerHTML = "<i class='fa-solid fa-check'></i> THÀNH CÔNG!";
-            btn.style.background = "#27ae60";
-            
-            setTimeout(() => {
+    .then(response => {
+        // Đọc nội dung text trả về từ Server (OK hoặc FAIL)
+        return response.text();
+    })
+    .then(data => {
+        // ĐỢI ĐÚNG 3 GIÂY ĐỂ XÁC NHẬN TRẠNG THÁI
+        setTimeout(() => {
+            if (data.includes("OK")) {
+                // --- TRƯỜNG HỢP HIỂU LÀ OK ---
+                btn.innerHTML = "<i class='fa-solid fa-check'></i> THÀNH CÔNG!";
+                btn.style.background = "#27ae60";
+                
+                // Tự động đóng trang lịch sau 1s để "đi ngủ"
+                setTimeout(() => {
+                    gotoPage('home'); 
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                    btn.style.background = ""; 
+                }, 1000);
+
+            } else {
+                // --- TRƯỜNG HỢP HIỂU LÀ FAIL (Dù có phản hồi nhưng nội dung báo lỗi) ---
+                alert("FAIL: ESP32 phản hồi lỗi hoặc sai cấu trúc!");
                 btn.disabled = false;
                 btn.innerHTML = originalText;
-                btn.style.background = ""; // Trả lại màu cũ
-                alert("Đã gửi lịch thành công tới thiết bị!");
-            }, 2000);
-        } else {
-            throw new Error("Server trả về lỗi");
-        }
+                btn.style.background = "#e74c3c"; // Đổi sang màu đỏ báo lỗi
+            }
+        }, 3000);
     })
     .catch(err => {
+        // --- TRƯỜNG HỢP FAIL DO MẤT MẠNG HOẶC SERVER SẬP ---
         console.error(err);
-        alert("❌ Lỗi mạng: Không thể kết nối tới Worker hoặc Cloud!");
+        alert("FAIL: Lỗi kết nối mạng, không thể gửi lịch!");
         btn.disabled = false;
         btn.innerHTML = originalText;
     });
