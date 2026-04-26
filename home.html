@@ -542,12 +542,9 @@ function syncV10ToESP() {
 // --- THAY THẾ HÀM NÀY VÀO FILE HTML CỦA BẠN ---
 function saveAllV10(btn) {
     const originalText = "<i class='fa-solid fa-paper-plane'></i> GỬI LỊCH LÊN ESP32";
-    
-    // Giao diện lúc đang gửi
     btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> ĐANG XỬ LÝ...";
     btn.disabled = true;
 
-    // 1. Lấy dữ liệu từ giao diện
     let roomId = document.getElementById('v10_id').value;
     let roomSchedules = listV10.filter(sch => String(sch.id) === String(roomId));
     let realId = parseInt(roomId) + 2;
@@ -563,65 +560,61 @@ function saveAllV10(btn) {
     
     const key = localStorage.getItem('userPass');
 
-    // 2. Gửi chuỗi lịch lên Blynk (qua Cloud/Worker)
+    // 1. Gửi lịch lên Blynk
     fetch(WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
-            'action': 'update', 
-            'pin': 'V0', 
-            'value': combinedData, 
-            'device': DEVICE_NAME, 
-            'key': key
+            'action': 'update', 'pin': 'V0', 'value': combinedData, 'device': DEVICE_NAME, 'key': key
         })
     })
     .then(() => {
-        // 3. ĐỢI 3 GIÂY ĐỂ HỆ THỐNG TỰ ĐỘNG ĐẨY XUỐNG 32 VÀ NHẬN PHẢN HỒI OK/FAIL
-        setTimeout(() => {
-            
-            // 4. KIỂM TRA LẠI CHÂN V0 XEM ESP32 ĐÃ TRẢ VỀ CHỮ GÌ
+        let startTime = Date.now();
+        
+        // 2. Tạo vòng lặp kiểm tra (Check liên tục mỗi 0.5 giây)
+        let checkInterval = setInterval(() => {
+            let elapsed = Date.now() - startTime;
+
+            // Nếu quá 3 giây mà chưa thấy OK/FAIL thì dừng lại báo lỗi
+            if (elapsed > 3000) {
+                clearInterval(checkInterval);
+                alert("FAIL: Quá 3 giây chip không phản hồi!");
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+                return;
+            }
+
+            // Lấy dữ liệu V0 về xem có chữ OK/FAIL chưa
             fetch(`${WORKER_URL}?action=get&pin=V0&device=${DEVICE_NAME}&key=${key}`)
             .then(res => res.text())
             .then(val => {
-                let status = val.trim().toUpperCase(); // Loại bỏ khoảng trắng và viết hoa
+                let status = val.trim().toUpperCase();
 
                 if (status === "OK") {
-                    // Nếu Web đọc được chữ OK -> Thành công
-                    btn.innerHTML = "<i class='fa-solid fa-check'></i> THÀNH CÔNG!";
+                    clearInterval(checkInterval); // Dừng kiểm tra ngay lập tức
+                    btn.innerHTML = "THÀNH CÔNG!";
                     btn.style.background = "#27ae60";
 
-                    // Tự động quay về trang chủ (đi ngủ) sau khi thành công
+                    // Về trang chủ ngay
                     setTimeout(() => {
-                        gotoPage('home'); 
+                        gotoPage('home');
                         btn.disabled = false;
                         btn.innerHTML = originalText;
-                        btn.style.background = ""; 
-                    }, 1000);
+                        btn.style.background = "";
+                    }, 500);
 
                 } else if (status === "FAIL") {
-                    // Nếu Web đọc được chữ FAIL
-                    alert("THẤT BẠI: Thiết bị phản hồi FAIL (Lỗi lưu lịch)!");
-                    btn.disabled = false;
-                    btn.innerHTML = originalText;
-                    btn.style.background = "#e74c3c";
-
-                } else {
-                    // Nếu sau 3s mà V0 vẫn là chuỗi lịch, chưa thấy OK/FAIL
-                    alert("LỖI: Quá thời gian chờ phản hồi từ ESP32!");
+                    clearInterval(checkInterval);
+                    alert("THẤT BẠI: Chip báo FAIL!");
                     btn.disabled = false;
                     btn.innerHTML = originalText;
                 }
-            })
-            .catch(() => {
-                alert("FAIL: Lỗi kết nối mạng khi kiểm tra phản hồi!");
-                btn.disabled = false;
-                btn.innerHTML = originalText;
+                // Nếu vẫn là chuỗi lịch thì vòng lặp tiếp tục chạy...
             });
-
-        }, 3000); // 3 giây chờ đợi phản hồi vòng về
+        }, 500); // Tần suất kiểm tra cực nhanh (0.5 giây/lần)
     })
     .catch(err => {
-        alert("FAIL: Không thể gửi dữ liệu lên Cloud!");
+        alert("FAIL: Lỗi mạng!");
         btn.disabled = false;
         btn.innerHTML = originalText;
     });
