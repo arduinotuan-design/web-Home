@@ -952,45 +952,57 @@ function editName(p) {
 //------------------------------
 
 async function monitorV13() {
-    const key = localStorage.getItem('userPass');
-    const device = typeof DEVICE_NAME !== 'undefined' ? DEVICE_NAME : "tanhanhttb123"; 
+    // 1. Dùng đúng mật mã Worker yêu cầu
+    const key = "1234567"; 
+    const device = "cay"; // Hoặc để trống tùy bạn, vì Worker sẽ chọn Token dựa trên cái này
 
-    console.log("%c>>> ĐANG ĐỌC TRẠNG THÁI V3 (DÙNG GET)...", "color: blue; font-weight: bold;");
+    console.log("%c>>> ĐANG LỌC V13 TỪ GET_ALL...", "color: blue; font-weight: bold;");
 
     for (let i = 1; i <= 3; i++) {
-        await new Promise(r => setTimeout(r, 1500)); 
+        await new Promise(r => setTimeout(r, 2000)); // Đợi 2s cho chắc
 
         try {
-            // CHUYỂN SANG DÙNG GET: Đưa tham số vào URL
-            const url = `${WORKER_URL}?action=get&pin=V3&device=${device}&key=${key}`;
-            
-            const response = await fetch(url, {
-                method: 'GET', // Thay POST bằng GET
-                headers: { 'Accept': 'application/json' }
+            // Dùng POST và gọi đúng action "get_all" mà Worker hỗ trợ
+            const response = await fetch(WORKER_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    'action': 'get_all',
+                    'device': device,
+                    'key': key
+                })
             });
 
             if (response.ok) {
-                const val = await response.text();
-                const ketQua = val.trim();
+                const data = await response.json();
+                // Worker trả về JSON, ta lấy riêng V13 ra
+                const valV13 = String(data.V13);
 
-                if (ketQua === "1") {
-                    console.log(`Lần ${i}: %cSố 1 (Đang Bật)`, "color: orange;");
-                } else if (ketQua === "0") {
-                    console.log(`Lần ${i}: %cSố 0 (Đã Tắt - Xong!)`, "color: green; font-weight: bold;");
+                if (valV13 === "1") {
+                    console.log(`Lần ${i}: %cSố 1 (Đang bật)`, "color: orange;");
+                } else if (valV13 === "0" || valV13 === "undefined") {
+                    // Nếu trả về 0 hoặc chưa có dữ liệu thì coi như Xong
+                    console.log(`Lần ${i}: %cSố 0 (Xong!)`, "color: green; font-weight: bold;");
                     return; 
-                } else {
-                    console.log(`Lần ${i}: Phản hồi lạ: ${ketQua}`);
                 }
             } else {
-                console.log(`Lần ${i}: Server báo lỗi ${response.status}`);
+                console.log(`Lần ${i}: Lỗi ${response.status} (Kiểm tra key/mật mã)`);
             }
         } catch (err) {
-            console.log(`Lần ${i}: %cLỗi kết nối!`, "color: red;");
+            console.log(`Lần ${i}: Lỗi cấu trúc JSON hoặc mạng!`);
         }
     }
 }
 
-      
+
+
+
+
+
+
+
+
+        
     </script>
 </body>
 </html>
