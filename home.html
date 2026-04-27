@@ -952,27 +952,21 @@ function editName(p) {
 //------------------------------
 
 async function monitorV13() {
-    // 1. Lấy thông tin bảo mật và cấu hình
     const key = localStorage.getItem('userPass');
-    // Nếu DEVICE_NAME của bạn là biến toàn cục thì nó sẽ tự lấy, không thì điền trực tiếp vào đây
     const device = typeof DEVICE_NAME !== 'undefined' ? DEVICE_NAME : "tanhanhttb123"; 
 
-    console.log("%c>>> BẮT ĐẦU KIỂM TRA TRẠNG THÁI V3...", "color: blue; font-weight: bold;");
+    console.log("%c>>> ĐANG ĐỌC TRẠNG THÁI V3 (DÙNG GET)...", "color: blue; font-weight: bold;");
 
-    // 2. Vòng lặp kiểm tra 3 lần (mỗi lần cách nhau 1.5 giây)
     for (let i = 1; i <= 3; i++) {
         await new Promise(r => setTimeout(r, 1500)); 
 
         try {
-            const response = await fetch(WORKER_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({
-                    'action': 'get',
-                    'pin': 'V3', 
-                    'device': device, 
-                    'key': key
-                })
+            // CHUYỂN SANG DÙNG GET: Đưa tham số vào URL
+            const url = `${WORKER_URL}?action=get&pin=V3&device=${device}&key=${key}`;
+            
+            const response = await fetch(url, {
+                method: 'GET', // Thay POST bằng GET
+                headers: { 'Accept': 'application/json' }
             });
 
             if (response.ok) {
@@ -980,24 +974,21 @@ async function monitorV13() {
                 const ketQua = val.trim();
 
                 if (ketQua === "1") {
-                    console.log(`Lần ${i}: %cSố 1 (Đèn đang Bật)`, "color: orange;");
+                    console.log(`Lần ${i}: %cSố 1 (Đang Bật)`, "color: orange;");
                 } else if (ketQua === "0") {
-                    console.log(`Lần ${i}: %cSố 0 (Đèn đã Tắt - Xong!)`, "color: green; font-weight: bold;");
-                    return; // Thấy số 0 là thoát hàm ngay lập tức
+                    console.log(`Lần ${i}: %cSố 0 (Đã Tắt - Xong!)`, "color: green; font-weight: bold;");
+                    return; 
                 } else {
-                    console.log(`Lần ${i}: Phản hồi khác: ${ketQua}`);
+                    console.log(`Lần ${i}: Phản hồi lạ: ${ketQua}`);
                 }
             } else {
-                console.log(`Lần ${i}: Lỗi Server (${response.status})`);
+                console.log(`Lần ${i}: Server báo lỗi ${response.status}`);
             }
         } catch (err) {
-            // Trường hợp mất mạng hoặc bị chặn CORS (nếu chạy offline trên ổ D)
-            console.log(`Lần ${i}: %cLỗi mạng hoặc bị chặn kết nối!`, "color: red;");
+            console.log(`Lần ${i}: %cLỗi kết nối!`, "color: red;");
         }
     }
-    console.log("%c>>> Kết thúc 3 lần kiểm tra.", "color: gray; italic;");
 }
-
 
       
     </script>
