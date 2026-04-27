@@ -573,7 +573,6 @@ function saveAllV10(btn) {
         if(r.ok) {
             alert(`✅ Đã đồng bộ 3 lịch cho Phòng ${roomId} (Bao gồm xóa lịch cũ nếu có)`);
             btn.innerText = "✅ OK";
-            monitorV13(); 
             btn.style.background = "#95a5a6";
             setTimeout(() => {
                 btn.innerText = "GỬI & LƯU LỊCH ĐÈN LÊN ESP32";
@@ -590,13 +589,6 @@ function saveAllV10(btn) {
         btn.disabled = false;
     });
 }
-
-
-
-
-
-
-
 // --- THAY THẾ HÀM NÀY VÀO FILE HTML CỦA BẠN ---
 
         // --- CÁC HÀM CŨ GIỮ NGUYÊN ---
@@ -953,54 +945,10 @@ function editName(p) {
     }
 }
 
-// Hàm chạy ngầm 2 giây để check V13
-async function monitorV13() {
-    console.log(">>> Đang đọc ngầm V13...");
-    const key = localStorage.getItem('userPass');
-
-    for (let i = 0; i < 5; i++) {
-        await new Promise(r => setTimeout(r, 400)); 
-
-        try {
-            // Dùng đúng cấu trúc POST mà công tắc đang dùng ổn định
-            let response = await fetch(WORKER_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({
-                    'action': 'get', // Hoặc 'status' tùy theo code cũ của bạn
-                    'device': DEVICE_NAME,
-                    'key': key
-                })
-            });
-
-            let text = await response.text();
-            
-            // Dùng bộ lọc JSON y hệt code cũ của bạn
-            if (text.trim().startsWith('{')) {
-                const data = JSON.parse(text);
-                
-                // Lọc V13 từ cục JSON tổng
-                if (data.V13 !== undefined) {
-                    let valV13 = String(data.V13);
-                    console.log(`[Check V13] Lần ${i+1}: ${valV13}`);
-
-                    if (valV13 === "0" || valV13 === "false") {
-                        console.log(">>> ESP báo V13=0 -> NGẮT SỚM!");
-                        // Cập nhật giao diện nếu cần
-                        return; 
-                    }
-                }
-            }
-        } catch (err) {
-            console.log("Lỗi kết nối khi đọc V13");
-        }
-    }
-}
-
 
       
     </script>
 </body>
 </html>
 
-//am thanh moi nhat
+//am thanh
