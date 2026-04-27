@@ -955,44 +955,41 @@ function editName(p) {
 
 // Hàm chạy ngầm 2 giây để check V13
 async function monitorV13() {
-    console.log(">>> Đang check phản hồi V13...");
+    console.log(">>> Đang đọc trạng thái V13 y như công tắc...");
     const key = localStorage.getItem('userPass');
     
     for (let i = 0; i < 5; i++) {
-        await new Promise(r => setTimeout(r, 400)); 
-
-        // Sử dụng URLSearchParams để đảm bảo URL đúng cấu trúc, tránh lỗi 400
-        const params = new URLSearchParams({
-            'action': 'get',
-            'device': DEVICE_NAME,
-            'pin': 'V13',
-            'key': key
-        });
+        await new Promise(r => setTimeout(r, 400)); // Đợi 0.4 giây mỗi lần check
 
         try {
-            // Thêm mode: 'no-cors' hoặc xử lý qua tham số URL
-            let response = await fetch(`${WORKER_URL}?${params.toString()}`);
-            
-            if (!response.ok) {
-                console.log("Lỗi fetch: " + response.status);
-                continue; 
-            }
+            // DÙNG ĐÚNG CẤU TRÚC FETCH CỦA CÔNG TẮC CŨ
+            let response = await fetch(WORKER_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    'action': 'get', 
+                    'pin': 'V13', 
+                    'device': DEVICE_NAME, 
+                    'key': key
+                })
+            });
 
-            let valueV13 = await response.text();
-            valueV13 = valueV13.trim();
+            let data = await response.text();
+            let valueV13 = data.trim();
 
-            console.log(`[V13 Check] Lần ${i+1}: giá trị = ${valueV13}`);
+            console.log(`[V13] Lần ${i+1}: ${valueV13}`);
 
+            // Nếu ESP32 trả về 0 (Xong/Tắt) thì thoát luôn
             if (valueV13 === "0") {
-                console.log(">>> ESP báo XONG (0). Thoát!");
-                return;
+                console.log(">>> V13 báo 0: Thoát sớm thành công!");
+                return; 
             }
         } catch (e) {
-            console.log("Lỗi kết nối Worker!");
+            console.log("Lỗi đọc V13!");
         }
     }
-    console.log(">>> Hết 2s.");
 }
+
 
 
       
