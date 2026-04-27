@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -446,27 +445,16 @@ function playClickSound() {
     document.getElementById('v10_list').innerHTML = html || '<div style="color:#ccc;text-align:center; padding:20px;">Chưa có lịch được tạo cho phòng này</div>';
 }
 
-      function addV10() {
-    let roomId = document.getElementById('v10_id').value;
-    let on = document.getElementById('v10_on').value;
-    let off = document.getElementById('v10_off').value;
-
-    if (!on || !off) return alert("Chọn đủ giờ!");
-
-    // 🔥 PHẢI CÓ DÒNG NÀY
-    let roomSchedules = listV10.filter(x => String(x.id) === String(roomId));
-
-    // 🔴 CHẶN NGAY TẠI ĐÂY
-    if (roomSchedules.length >= 3) {
-        alert("❌ Bạn chỉ hẹn tối đa 3 lịch thôi!");
-        return;
-    }
-
-    listV10.push({id: roomId, on: on, off: off});
-    localStorage.setItem('v10_list_cache', JSON.stringify(listV10));
-
-    loadRoomSchedules();
-}
+        function addV10() {
+            let roomId = document.getElementById('v10_id').value;
+            let on = document.getElementById('v10_on').value;
+            let off = document.getElementById('v10_off').value;
+            if(!on || !off) return alert("Chọn đủ giờ!");
+            
+            listV10.push({id: roomId, on: on, off: off});
+            localStorage.setItem('v10_list_cache', JSON.stringify(listV10));
+            loadRoomSchedules();
+        }
         
 
 // --- HÀM XÓA ĐÃ SỬA LẠI THEO ĐÚNG Ý BẠN ---
@@ -519,52 +507,43 @@ function removeV10(i) {
 }
 //--------------------------------------
           
-function syncV10ToESP() {
-    let roomId = document.getElementById('v10_id').value;
-    let roomSchedules = listV10.filter(sch => String(sch.id) === String(roomId)).slice(0, 3);
-    
-    // Tạo chuỗi dữ liệu (Nếu không có lịch thì gửi chuỗi rỗng hoặc mặc định)
-    let combinedData = roomSchedules.map(sch => {
-        let realId = parseInt(sch.id) + 2;
-        return `id:${realId} ${sch.on} true ${sch.off} false`;
-    }).join(';') + ";";
 
-    const key = localStorage.getItem('userPass');
-    fetch(WORKER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-            'action': 'update', 'pin': 'V0', 'value': combinedData, 'device': DEVICE_NAME, 'key': key
-        })
-    }).then(() => console.log(">>> Đã đồng bộ xóa tới V0: ", combinedData));
-}
-        // --- THAY THẾ HÀM NÀY VÀO FILE HTML CỦA BẠN ---
-// --- THAY THẾ HÀM NÀY VÀO FILE HTML CỦA BẠN ---
+       
+// --- --------------------- ---
 function saveAllV10(btn) {
     btn.innerText = "⏳ ĐANG GỬI...";
     btn.disabled = true;
 
+    // 1. Lấy đèn đang được chọn
     let roomId = document.getElementById('v10_id').value;
+    
+    // 2. Lấy danh sách lịch hiện có trên Web cho phòng này
     let roomSchedules = listV10.filter(sch => String(sch.id) === String(roomId));
+    
+    // 3. QUAN TRỌNG: Tạo chuỗi dữ liệu luôn đủ 3 lịch (để ghi đè/xóa lịch cũ trên ESP32)
     let realId = parseInt(roomId) + 2;
     let combinedData = "";
     
     for (let i = 0; i < 3; i++) {
         if (roomSchedules[i]) {
+            // Nếu có lịch trên Web: Gửi giờ thật
             let sch = roomSchedules[i];
             combinedData += `id:${realId} ${sch.on} true ${sch.off} false;`;
         } else {
+            // Nếu không có (đã bị xóa hoặc chưa đặt): Gửi lệnh RESET để ESP32 xóa hẳn
             combinedData += `id:${realId} 00:00 false 00:00 false;`;
         }
     }
     
+    console.log(`>>> Gửi tổng hợp (3 gói) tới V0:`, combinedData);
+
     const key = localStorage.getItem('userPass');
 
-    // --- BƯỚC 1: GỬI LỊCH (DÙNG POST) ---
+    // 1. Gửi lịch xuống V0
     fetch(WORKER_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
             'action': 'update',
             'pin': 'V0',
             'value': combinedData,
@@ -572,79 +551,82 @@ function saveAllV10(btn) {
             'key': key
         })
     })
-    .then(r => {
+    .then(async r => {
         if(r.ok) {
-            btn.innerText = "⏳ ĐANG ĐỢI PHẢN HỒI (3S)...";
+            console.log("Đã gửi V0 thành công, bắt đầu đợi V13 phản hồi...");
+            
+            let attempts = 0; // Biến đếm số lần kiểm tra
+            const maxAttempts = 6; // Thử 6 lần (mỗi lần cách nhau 0.5s => tổng 3s)
 
-            // --- BƯỚC 2: CHẠY NGẦM 3 GIÂY RỒI HỎI KẾT QUẢ (DÙNG POST) ---
-            setTimeout(() => {
-                fetch(WORKER_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        'action': 'get',
-                        'pin': 'V0',
-                        'device': DEVICE_NAME,
-                        'key': key
-                    })
-                })
-                .then(res => res.text())
-                .then(val => {
-                    let status = val.trim(); // Bây giờ là "1" hoặc "0"
+            // 2. Chạy vòng lặp kiểm tra V13 mỗi 0.5 giây
+            const checkInterval = setInterval(async () => {
+                attempts++;
+                console.log(`Đang kiểm tra V13 lần thứ ${attempts}...`);
 
-                    if (status === "1") {
-                        alert("✅ THÀNH CÔNG: Chip đã xác nhận lưu lịch!");
-                        ketThuc(btn, "✅ XONG");
-                    } else {
-                        alert("❌ THẤT BẠI: Chip chưa phản hồi hoặc sai dữ liệu!");
-                        ketThuc(btn, "❌ LỖI");
-                    }
-                })
-                .catch(e => {
-                    console.error("Lỗi kiểm tra phản hồi");
-                    ketThuc(btn, "⚠️ THỬ LẠI");
-                });
-            }, 3000); 
-            // -------------------------------------------------------
+                // Gọi hàm đọc trạng thái (hàm này phải trả về dữ liệu JSON)
+                const data = await updateStatusOnly(); 
+                
+                if (data && (data["V13"] == "1" || data["V13"] == 1)) {
+                    // THÀNH CÔNG: Thấy V13 = 1 thì thoát ngay lập tức
+                    clearInterval(checkInterval);
+                    thongBaoKetQua(btn, true);
+                    console.log("Đã nhận được ACK (V13=1). Thoát!");
+                } 
+                else if (attempts >= maxAttempts) {
+                    // THẤT BẠI: Quá 3 giây mà V13 vẫn chưa bằng 1
+                    clearInterval(checkInterval);
+                    thongBaoKetQua(btn, false);
+                    console.log("Quá thời gian chờ ACK. Thất bại!");
+                }
+            }, 500); // 0.5 giây kiểm tra 1 lần
+
         } else {
             alert("❌ Lỗi gửi dữ liệu!");
             btn.disabled = false;
-            btn.innerText = "GỬI & LƯU LỊCH";
         }
     })
     .catch(e => {
         alert("❌ Lỗi mạng!");
         btn.disabled = false;
-        btn.innerText = "GỬI & LƯU LỊCH";
     });
 }
-// Hàm phụ để reset nút bấm cho gọn code
-function ketThuc(btn, message) {
-    btn.innerText = message;
-    btn.style.background = "#95a5a6";
-    // --- ĐOẠN SỬA MỚI: ĐỢI 3 GIÂY KIỂM TRA 0/1 ---
-setTimeout(() => {
-    // Web đi hỏi Worker xem V0 đang là mấy
-    fetch(`${WORKER_URL}?action=get&pin=V0&device=${DEVICE_NAME}&key=${key}`)
-    .then(res => res.text())
-    .then(val => {
-        let status = val.trim(); // Lấy giá trị về (0 hoặc 1)
 
-        if (status == "1") {
-            alert("✅ THÀNH CÔNG: Lịch đã được lưu!");
-            ketThuc(btn, "✅ XONG");
-        } else {
-            // Nếu là "0" hoặc bất kỳ thứ gì khác 1
-            alert("❌ THẤT BẠI: Chip chưa nhận được lịch!");
-            ketThuc(btn, "❌ LỖI");
-        }
-    })
-    .catch(err => {
-        console.log("Lỗi mạng, không hỏi được Worker");
-        ketThuc(btn, "⚠️ THỬ LẠI");
-    });
-}, 3000); // Đợi đúng 3000ms (3 giây) rồi mới làm
-}    
+// Hàm phụ để hiển thị thông báo và reset nút bấm
+function thongBaoKetQua(btn, isSuccess) {
+    if (isSuccess) {
+        alert("✅ Đã đồng bộ thành công (Thiết bị đã nhận)!");
+        btn.innerText = "✅ OK";
+        btn.style.background = "#2ecc71";
+    } else {
+        alert("❌ Lỗi: Thiết bị không phản hồi ACK (V13). Vui lòng thử lại!");
+        btn.innerText = "❌ THỬ LẠI";
+        btn.style.background = "#e74c3c";
+    }
+    
+    setTimeout(() => {
+        btn.innerText = "GỬI & LƯU LỊCH ĐÈN LÊN ESP32";
+        btn.style.background = "";                
+        btn.disabled = false;
+    }, 2000);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// --- THAY THẾ HÀM NÀY VÀO FILE HTML CỦA BẠN ---
 
         // --- CÁC HÀM CŨ GIỮ NGUYÊN ---
 
@@ -709,49 +691,79 @@ function sendCmd(pin, value) {
 
 
 
-       function updateStatusOnly() {
+    
+
+async function updateStatusOnly() {
     const indicator = document.getElementById('status-indicator');
-    if(indicator) indicator.style.background = "#f1c40f"; 
+    // B1: Đổi màu vàng báo hiệu đang đọc dữ liệu
+    if (indicator) indicator.style.background = "#f1c40f"; 
+
     const key = localStorage.getItem('userPass');
 
-    fetch(WORKER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-            'action': 'get_all',
-            'device': DEVICE_NAME,
-            'key': key
-        })
-    })
-    .then(r => r.text())
-    .then(text => {
-        try {
-            if (text.trim().startsWith('{')) {
-                const data = JSON.parse(text);
-                if(indicator) indicator.style.background = "#2ecc71";
-                for (let p in data) {
-                    let onBtn = document.getElementById(`on-${p}`);
-                    let offBtn = document.getElementById(`off-${p}`);
-                    if(onBtn && offBtn) {
-                        let val = String(data[p]); 
-                        if (val === "1" || val === "true") {
-                            onBtn.className = "btn btn-on active-on";
-                            offBtn.className = "btn btn-off";
-                        } else {
-                            onBtn.className = "btn btn-on";
-                            offBtn.className = "btn btn-off active-off";
-                        }
+    try {
+        // B2: Gọi Worker lấy dữ liệu (Phải có await)
+        const response = await fetch(WORKER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                'action': 'get_all',
+                'device': DEVICE_NAME,
+                'key': key
+            })
+        });
+
+        const text = await response.text();
+
+        // B3: Kiểm tra định dạng JSON
+        if (text.trim().startsWith('{')) {
+            const data = JSON.parse(text);
+            
+            // Nếu thành công, đổi đèn hệ thống sang xanh lá
+            if (indicator) indicator.style.background = "#2ecc71";
+
+            // B4: Vòng lặp cập nhật tất cả nút bấm (V1, V3... V13)
+            for (let p in data) {
+                // p ở đây sẽ là "V1", "V3", "V13"...
+                let onBtn = document.getElementById(`on-${p}`);
+                let offBtn = document.getElementById(`off-${p}`);
+
+                if (onBtn && offBtn) {
+                    let val = String(data[p]);
+                    if (val === "1" || val === "true") {
+                        onBtn.className = "btn active-on";
+                        offBtn.className = "btn";
+                    } else {
+                        onBtn.className = "btn";
+                        offBtn.className = "btn active-off";
                     }
                 }
-            } else {
-                if(indicator) indicator.style.background = "#e67e22"; 
             }
-        } catch (err) {}
-    })
-    .catch(e => {
-        if(indicator) indicator.style.background = "#e74c3c"; 
-    });
+            
+            // B5: Quan trọng nhất - Trả về dữ liệu để hàm saveAllV10 kiểm tra V13
+            return data; 
+
+        } else {
+            // Lỗi dữ liệu không phải JSON
+            if (indicator) indicator.style.background = "#e67e22"; 
+            return null;
+        }
+    } catch (err) {
+        // Lỗi mạng hoặc Worker sập
+        console.error("Lỗi Fetch:", err);
+        if (indicator) indicator.style.background = "#e74c3c"; 
+        return null;
+    }
 }
+
+
+
+
+
+
+
+
+
+
       function addV2() {
     let t = document.getElementById('v2_t').value;
     let d = document.getElementById('v2_d').value;
@@ -762,31 +774,41 @@ function sendCmd(pin, value) {
     
     
 }
-    function saveV2(btn) {
-    // Lưu lại tên nút cũ để tí nữa hiện lại
-    const originalText = btn.innerHTML; 
-    
-    // Hiệu ứng chờ đợi
-    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> ĐANG GỬI...";
-    btn.disabled = true;
-
-    // ... (Logic gom dữ liệu v2Data của bạn) ...
-
+      function saveV2(btn) {
+    let full = [];
+    for(let i=0; i<6; i++) {
+        if(listV2[i]) {
+            let p = listV2[i].t.split(':');
+            full.push({id:i+1, h:parseInt(p[0]), m:parseInt(p[1]), d:parseInt(listV2[i].d), a:true});
+        } else {
+            full.push({id:i+1, h:0, m:0, d:0, a:false});
+        }
+    }
+    localStorage.setItem('v2_list_cache', JSON.stringify(listV2));
     const key = localStorage.getItem('userPass');
+
+    // POST nội dung y hệt bản GET
     fetch(WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
-            'action': 'update', 'pin': 'V2', 'value': v2Data, 'device': DEVICE_NAME, 'key': key
+            'action': 'update',
+            'pin': 'V2',
+            'value': JSON.stringify(full),
+            'device': DEVICE_NAME,
+            'key': key
         })
-    }).then(r => {
-        if(r.ok) {
-            // CHỈ KHI GỬI THÀNH CÔNG MỚI BẮT ĐẦU ĐỊNH THỜI 3 GIÂY
-            batDauDinhThoiKiemTra(btn, originalText);
-        } else {
-            btn.disabled = false;
-            btn.innerHTML = originalText;
+    }).then((response) => {
+        if (response.ok) {
+            btn.innerText = "✅ ĐÃ XỬ LÝ!"; 
+            btn.style.background = "#2ecc71";
+            setTimeout(() => { 
+                btn.innerText = "GỬI & LƯU LỊCH TƯỚI"; 
+                btn.style.background = ""; 
+            }, 2000);
         }
+    }).catch(e => {
+        console.log("Lỗi mạng:", e);
     });
 }
 
@@ -991,64 +1013,9 @@ function editName(p) {
 }
 
 
-
-
-
-let checkV20Interval = null; // Biến này để quản lý vòng lặp quét
-
-function batDauDinhThoiKiemTra(btn, originalText) {
-    const key = localStorage.getItem('userPass');
-    
-    // Nếu đang có vòng quét cũ thì xóa đi
-    if (checkV20Interval) clearInterval(checkV20Interval);
-
-    // Bắt đầu đợi đúng 3 giây (để chip xử lý xong) rồi mới kiểm tra
-    checkV20Interval = setInterval(() => {
-        
-        // Dừng ngay vòng lặp, chỉ quét 1 lần duy nhất để "yên bình"
-        clearInterval(checkV20Interval);
-        checkV20Interval = null; 
-
-        fetch(`${WORKER_URL}?action=get&pin=V20&device=${DEVICE_NAME}&key=${key}`)
-            .then(r => r.text())
-            .then(status => {
-                // Xóa bỏ dấu ngoặc kép nếu có từ phản hồi
-                status = status.trim().replace(/"/g, "");
-
-                if (status === "OK") {
-                    ketThucQuet(btn, originalText, "✅ THÀNH CÔNG", "#2ecc71");
-                } else {
-                    // Nếu phản hồi không phải OK (có thể là FAIL hoặc giá trị cũ)
-                    ketThucQuet(btn, originalText, "❌ LỖI PHẢN HỒI", "#e74c3c");
-                }
-            })
-            .catch(() => {
-                ketThucQuet(btn, originalText, "🌐 LỖI MẠNG", "#e74c3c");
-            });
-            
-    }, 3000); // Đợi đúng 3 giây rồi quét
-}
-
-function ketThucQuet(btn, originalText, message, color) {
-    if (checkV20Interval) {
-        clearInterval(checkV20Interval);
-        checkV20Interval = null; 
-    }
-    btn.innerHTML = message;
-    btn.style.background = color;
-
-    // Sau 1.5 giây thì trả nút về trạng thái bình thường
-    setTimeout(() => {
-        btn.innerHTML = originalText;
-        btn.style.background = ""; // Trả về màu gradient gốc trong CSS
-        btn.disabled = false;
-    }, 1500);
-}
-
-
       
     </script>
 </body>
 </html>
 
-//moi2
+//am thanhaaaaaddddddd
