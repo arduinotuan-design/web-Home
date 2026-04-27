@@ -507,9 +507,27 @@ function removeV10(i) {
 }
 //--------------------------------------
           
+function syncV10ToESP() {
+    let roomId = document.getElementById('v10_id').value;
+    let roomSchedules = listV10.filter(sch => String(sch.id) === String(roomId)).slice(0, 3);
+    
+    // Tạo chuỗi dữ liệu (Nếu không có lịch thì gửi chuỗi rỗng hoặc mặc định)
+    let combinedData = roomSchedules.map(sch => {
+        let realId = parseInt(sch.id) + 2;
+        return `id:${realId} ${sch.on} true ${sch.off} false`;
+    }).join(';') + ";";
 
-       
-// --- --------------------- ---
+    const key = localStorage.getItem('userPass');
+    fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+            'action': 'update', 'pin': 'V0', 'value': combinedData, 'device': DEVICE_NAME, 'key': key
+        })
+    }).then(() => console.log(">>> Đã đồng bộ xóa tới V0: ", combinedData));
+}
+        // --- THAY THẾ HÀM NÀY VÀO FILE HTML CỦA BẠN ---
+// --- THAY THẾ HÀM NÀY VÀO FILE HTML CỦA BẠN ---
 function saveAllV10(btn) {
     btn.innerText = "⏳ ĐANG GỬI...";
     btn.disabled = true;
@@ -539,7 +557,7 @@ function saveAllV10(btn) {
 
     const key = localStorage.getItem('userPass');
 
-    // 1. Gửi lịch xuống V0
+    // 4. Gửi lên Cloud
     fetch(WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -551,35 +569,16 @@ function saveAllV10(btn) {
             'key': key
         })
     })
-    .then(async r => {
+    .then(r => {
         if(r.ok) {
-            console.log("Đã gửi V0 thành công, bắt đầu đợi V13 phản hồi...");
-            
-            let attempts = 0; // Biến đếm số lần kiểm tra
-            const maxAttempts = 6; // Thử 6 lần (mỗi lần cách nhau 0.5s => tổng 3s)
-
-            // 2. Chạy vòng lặp kiểm tra V13 mỗi 0.5 giây
-            const checkInterval = setInterval(async () => {
-                attempts++;
-                console.log(`Đang kiểm tra V13 lần thứ ${attempts}...`);
-
-                // Gọi hàm đọc trạng thái (hàm này phải trả về dữ liệu JSON)
-                const data = await updateStatusOnly(); 
-                
-                if (data && (data["V13"] == "1" || data["V13"] == 1)) {
-                    // THÀNH CÔNG: Thấy V13 = 1 thì thoát ngay lập tức
-                    clearInterval(checkInterval);
-                    thongBaoKetQua(btn, true);
-                    console.log("Đã nhận được ACK (V13=1). Thoát!");
-                } 
-                else if (attempts >= maxAttempts) {
-                    // THẤT BẠI: Quá 3 giây mà V13 vẫn chưa bằng 1
-                    clearInterval(checkInterval);
-                    thongBaoKetQua(btn, false);
-                    console.log("Quá thời gian chờ ACK. Thất bại!");
-                }
-            }, 500); // 0.5 giây kiểm tra 1 lần
-
+            alert(`✅ Đã đồng bộ 3 lịch cho Phòng ${roomId} (Bao gồm xóa lịch cũ nếu có)`);
+            btn.innerText = "✅ OK";
+            btn.style.background = "#95a5a6";
+            setTimeout(() => {
+                btn.innerText = "GỬI & LƯU LỊCH ĐÈN LÊN ESP32";
+                btn.style.background = "";                
+                btn.disabled = false;
+            }, 2000);
         } else {
             alert("❌ Lỗi gửi dữ liệu!");
             btn.disabled = false;
@@ -590,42 +589,6 @@ function saveAllV10(btn) {
         btn.disabled = false;
     });
 }
-
-// Hàm phụ để hiển thị thông báo và reset nút bấm
-function thongBaoKetQua(btn, isSuccess) {
-    if (isSuccess) {
-        alert("✅ Đã đồng bộ thành công (Thiết bị đã nhận)!");
-        btn.innerText = "✅ OK";
-        btn.style.background = "#2ecc71";
-    } else {
-        alert("❌ Lỗi: Thiết bị không phản hồi ACK (V13). Vui lòng thử lại!");
-        btn.innerText = "❌ THỬ LẠI";
-        btn.style.background = "#e74c3c";
-    }
-    
-    setTimeout(() => {
-        btn.innerText = "GỬI & LƯU LỊCH ĐÈN LÊN ESP32";
-        btn.style.background = "";                
-        btn.disabled = false;
-    }, 2000);
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // --- THAY THẾ HÀM NÀY VÀO FILE HTML CỦA BẠN ---
 
         // --- CÁC HÀM CŨ GIỮ NGUYÊN ---
@@ -691,79 +654,49 @@ function sendCmd(pin, value) {
 
 
 
-    
-
-async function updateStatusOnly() {
+       function updateStatusOnly() {
     const indicator = document.getElementById('status-indicator');
-    // B1: Đổi màu vàng báo hiệu đang đọc dữ liệu
-    if (indicator) indicator.style.background = "#f1c40f"; 
-
+    if(indicator) indicator.style.background = "#f1c40f"; 
     const key = localStorage.getItem('userPass');
 
-    try {
-        // B2: Gọi Worker lấy dữ liệu (Phải có await)
-        const response = await fetch(WORKER_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-                'action': 'get_all',
-                'device': DEVICE_NAME,
-                'key': key
-            })
-        });
-
-        const text = await response.text();
-
-        // B3: Kiểm tra định dạng JSON
-        if (text.trim().startsWith('{')) {
-            const data = JSON.parse(text);
-            
-            // Nếu thành công, đổi đèn hệ thống sang xanh lá
-            if (indicator) indicator.style.background = "#2ecc71";
-
-            // B4: Vòng lặp cập nhật tất cả nút bấm (V1, V3... V13)
-            for (let p in data) {
-                // p ở đây sẽ là "V1", "V3", "V13"...
-                let onBtn = document.getElementById(`on-${p}`);
-                let offBtn = document.getElementById(`off-${p}`);
-
-                if (onBtn && offBtn) {
-                    let val = String(data[p]);
-                    if (val === "1" || val === "true") {
-                        onBtn.className = "btn active-on";
-                        offBtn.className = "btn";
-                    } else {
-                        onBtn.className = "btn";
-                        offBtn.className = "btn active-off";
+    fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+            'action': 'get_all',
+            'device': DEVICE_NAME,
+            'key': key
+        })
+    })
+    .then(r => r.text())
+    .then(text => {
+        try {
+            if (text.trim().startsWith('{')) {
+                const data = JSON.parse(text);
+                if(indicator) indicator.style.background = "#2ecc71";
+                for (let p in data) {
+                    let onBtn = document.getElementById(`on-${p}`);
+                    let offBtn = document.getElementById(`off-${p}`);
+                    if(onBtn && offBtn) {
+                        let val = String(data[p]); 
+                        if (val === "1" || val === "true") {
+                            onBtn.className = "btn btn-on active-on";
+                            offBtn.className = "btn btn-off";
+                        } else {
+                            onBtn.className = "btn btn-on";
+                            offBtn.className = "btn btn-off active-off";
+                        }
                     }
                 }
+            } else {
+                if(indicator) indicator.style.background = "#e67e22"; 
             }
-            
-            // B5: Quan trọng nhất - Trả về dữ liệu để hàm saveAllV10 kiểm tra V13
-            return data; 
-
-        } else {
-            // Lỗi dữ liệu không phải JSON
-            if (indicator) indicator.style.background = "#e67e22"; 
-            return null;
-        }
-    } catch (err) {
-        // Lỗi mạng hoặc Worker sập
-        console.error("Lỗi Fetch:", err);
-        if (indicator) indicator.style.background = "#e74c3c"; 
-        return null;
-    }
+        } catch (err) {}
+    })
+    .catch(e => {
+        if(indicator) indicator.style.background = "#e74c3c"; 
+    });
 }
-
-
-
-
-
-
-
-
-
-
       function addV2() {
     let t = document.getElementById('v2_t').value;
     let d = document.getElementById('v2_d').value;
@@ -1018,4 +951,4 @@ function editName(p) {
 </body>
 </html>
 
-//am thanhaaaaaddddddd
+//am thanh
