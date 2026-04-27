@@ -633,19 +633,22 @@ function saveAllV10(btn) {
 
         // --- CÁC HÀM CŨ GIỮ NGUYÊN ---
 
-let isWaiting = {};
+
 function sendCmd(pin, value) {
-    // 1. Khóa ngay lập tức nút này, không cho phép cập nhật tự động từ server
-    isWaiting[pin] = true; 
-    
-    // 2. Đổi màu Xanh lè và phát âm thanh ngay (Cảm giác cực nhạy)
-    updateUI(pin, value === 1 ? 'ON' : 'OFF');
-    
+    // 1. Đổi màu nút ngay lập tức (Ưu tiên số 1)
+    if (value === 1) {
+        updateUI(pin, 'ON');
+    } else {
+        updateUI(pin, 'OFF');
+    }
+
+    // 2. Phát âm thanh ngay nhưng đẩy vào luồng xử lý phụ 
+    // để không cản trở việc gửi lệnh mạng ở dưới
     requestAnimationFrame(() => {
         playClickSound();
     });
 
-    // 3. Gửi lệnh lên Worker
+    // 3. Gửi lệnh đi Worker (Chạy song song, không bị âm thanh làm chậm)
     const key = localStorage.getItem('userPass');
     fetch(WORKER_URL, {
         method: 'POST',
@@ -654,60 +657,16 @@ function sendCmd(pin, value) {
             'action': 'update', 'pin': pin, 'value': value, 
             'device': DEVICE_NAME, 'key': key
         })
-    }).then(() => {
-        // 4. Đợi 1.5 giây rồi mới bắt đầu kiểm tra lần đầu
+    }).then(response => {
+        // Chỗ này CHỈ để check feedback, không để tiếng kêu ở đây
         setTimeout(() => {
-            checkFeedbackSmart(pin, value, 1); // Số 1 là lần thử thứ nhất
+            checkFeedback(pin, value);
         }, 1500);
-    }).catch(e => {
-        // Nếu mất mạng ngay lúc bấm thì cho về màu cũ luôn
-        isWaiting[pin] = false;
-        updateUI(pin, value === 1 ? 'OFF' : 'ON');
     });
 }
 
 
-async function checkFeedbackSmart(pin, expectedValue, attempt) {
-    const key = localStorage.getItem('userPass');
-    const checkUrl = `${WORKER_URL}/?action=get_pin&pin=${pin}&device=${DEVICE_NAME}&key=${key}`;
 
-    try {
-        const response = await fetch(checkUrl);
-        const text = await response.text();
-        const actualValue = parseInt(text.trim());
-
-        if (actualValue === expectedValue) {
-            // --- TRƯỜNG HỢP 1: ĐÃ KHỚP (V13=1) ---
-            console.log(`Lần ${attempt}: Đã khớp! Thoát khóa.`);
-            isWaiting[pin] = false; // Mở khóa để nhận data tự động bình thường
-            // Giữ nguyên màu xanh (không cần làm gì vì nút đang xanh sẵn rồi)
-        } 
-        else {
-            // --- TRƯỜNG HỢP 2: CHƯA KHỚP (V13=0) ---
-            if (attempt === 1) {
-                // Nếu mới là lần 1 (1.5s): ĐỪNG VỀ XÁM, lẳng lặng đợi thêm 1s nữa
-                console.log("Lần 1 chưa khớp, vẫn giữ xanh, đợi thêm 1s...");
-                setTimeout(() => {
-                    checkFeedbackSmart(pin, expectedValue, 2); // Thử lần cuối
-                }, 1000);
-            } 
-            else {
-                // Nếu đã là lần 2 (tổng 2.5s) mà vẫn sai: THẤT BẠI THẬT RỒI
-                console.log("Lần 2 vẫn không xong. Trả về xám.");
-                isWaiting[pin] = false; // Mở khóa
-                updateUI(pin, expectedValue === 1 ? 'OFF' : 'ON'); // Trả về màu cũ (Xám)
-            }
-        }
-    } catch (e) {
-        console.log("Lỗi kết nối khi check");
-        if (attempt === 1) {
-            setTimeout(() => checkFeedbackSmart(pin, expectedValue, 2), 1000);
-        } else {
-            isWaiting[pin] = false;
-            updateUI(pin, expectedValue === 1 ? 'OFF' : 'ON');
-        }
-    }
-}
 
 
 async function checkFeedback(pin, expectedValue) {
@@ -1131,4 +1090,4 @@ function editName(p) {
 </body>
 </html>
 
-
+//am thanh gggg
