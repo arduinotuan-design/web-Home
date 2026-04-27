@@ -635,6 +635,7 @@ function saveAllV10(btn) {
 
 
 function sendCmd(pin, value) {
+    playClickSound();
     const key = localStorage.getItem('userPass');
     
     // Đổi màu ngay lập tức để tạo cảm giác nhạy
