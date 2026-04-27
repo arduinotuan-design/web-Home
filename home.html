@@ -955,19 +955,19 @@ function editName(p) {
 
 // Hàm chạy ngầm 2 giây để check V13
 async function monitorV13() {
-    console.log(">>> Đang đọc toàn bộ trạng thái để lọc V13...");
+    console.log(">>> Đang đọc ngầm V13...");
     const key = localStorage.getItem('userPass');
-    const indicator = document.getElementById('status-indicator');
 
     for (let i = 0; i < 5; i++) {
         await new Promise(r => setTimeout(r, 400)); 
 
         try {
+            // Dùng đúng cấu trúc POST mà công tắc đang dùng ổn định
             let response = await fetch(WORKER_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: new URLSearchParams({
-                    'action': 'get_all', // Hoặc action nào bạn dùng để đọc hết
+                    'action': 'get', // Hoặc 'status' tùy theo code cũ của bạn
                     'device': DEVICE_NAME,
                     'key': key
                 })
@@ -975,46 +975,27 @@ async function monitorV13() {
 
             let text = await response.text();
             
-            // --- BẮT ĐẦU DÙNG BỘ LỌC CỦA BẠN ---
+            // Dùng bộ lọc JSON y hệt code cũ của bạn
             if (text.trim().startsWith('{')) {
                 const data = JSON.parse(text);
                 
-                // Lọc riêng thằng V13 ra ở đây
-                if (data.hasOwnProperty('V13')) {
-                    let valV13 = String(data['V13']);
-                    console.log(`[Lần ${i+1}] Giá trị V13 lọc được: ${valV13}`);
+                // Lọc V13 từ cục JSON tổng
+                if (data.V13 !== undefined) {
+                    let valV13 = String(data.V13);
+                    console.log(`[Check V13] Lần ${i+1}: ${valV13}`);
 
-                    // Nếu V13 báo 0 (Xong) thì thoát ngầm luôn
                     if (valV13 === "0" || valV13 === "false") {
-                        console.log(">>> Đã lọc thấy V13 = 0. THOÁT SỚM!");
-                        if(indicator) indicator.style.background = "#2ecc71"; // Báo xanh vì đã xong
+                        console.log(">>> ESP báo V13=0 -> NGẮT SỚM!");
+                        // Cập nhật giao diện nếu cần
                         return; 
-                    }
-                }
-                
-                // Cập nhật luôn các nút bấm khác nếu bạn muốn (giống code cũ)
-                for (let p in data) {
-                    let onBtn = document.getElementById(`on-${p}`);
-                    let offBtn = document.getElementById(`off-${p}`);
-                    if(onBtn && offBtn) {
-                        let val = String(data[p]); 
-                        if (val === "1" || val === "true") {
-                            onBtn.className = "btn btn-on active-on";
-                            offBtn.className = "btn btn-off";
-                        } else {
-                            onBtn.className = "btn btn-on";
-                            offBtn.className = "btn btn-off active-off";
-                        }
                     }
                 }
             }
         } catch (err) {
-            console.log("Lỗi khi lọc dữ liệu V13");
+            console.log("Lỗi kết nối khi đọc V13");
         }
     }
-    console.log(">>> Hết 2s lọc.");
 }
-
 
 
       
