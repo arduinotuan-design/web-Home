@@ -635,16 +635,21 @@ function saveAllV10(btn) {
 
 
 function sendCmd(pin, value) {
-    playClickSound();
-    const key = localStorage.getItem('userPass');
-    
-    // Đổi màu ngay lập tức để tạo cảm giác nhạy
+    // 1. Đổi màu nút ngay lập tức (Ưu tiên số 1)
     if (value === 1) {
-        updateUI(pin, 'ON'); // Nhấn ON -> Xanh ngay
+        updateUI(pin, 'ON');
     } else {
-        updateUI(pin, 'OFF'); // Nhấn OFF -> Xám đậm ngay
+        updateUI(pin, 'OFF');
     }
 
+    // 2. Phát âm thanh ngay nhưng đẩy vào luồng xử lý phụ 
+    // để không cản trở việc gửi lệnh mạng ở dưới
+    requestAnimationFrame(() => {
+        playClickSound();
+    });
+
+    // 3. Gửi lệnh đi Worker (Chạy song song, không bị âm thanh làm chậm)
+    const key = localStorage.getItem('userPass');
     fetch(WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -653,14 +658,10 @@ function sendCmd(pin, value) {
             'device': DEVICE_NAME, 'key': key
         })
     }).then(response => {
-        // Sau 1.5 giây hỏi Worker xem thực tế thiết bị đã đổi chưa
+        // Chỗ này CHỈ để check feedback, không để tiếng kêu ở đây
         setTimeout(() => {
             checkFeedback(pin, value);
         }, 1500);
-    }).catch(e => {
-        // Mất mạng thì trả về trạng thái ngược lại
-        const rollback = (value === 1) ? 'OFF' : 'ON';
-        updateUI(pin, rollback);
     });
 }
 
