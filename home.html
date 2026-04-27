@@ -573,6 +573,7 @@ function saveAllV10(btn) {
         if(r.ok) {
             alert(`✅ Đã đồng bộ 3 lịch cho Phòng ${roomId} (Bao gồm xóa lịch cũ nếu có)`);
             btn.innerText = "✅ OK";
+            monitorV13(); 
             btn.style.background = "#95a5a6";
             setTimeout(() => {
                 btn.innerText = "GỬI & LƯU LỊCH ĐÈN LÊN ESP32";
@@ -589,6 +590,13 @@ function saveAllV10(btn) {
         btn.disabled = false;
     });
 }
+
+
+
+
+
+
+
 // --- THAY THẾ HÀM NÀY VÀO FILE HTML CỦA BẠN ---
 
         // --- CÁC HÀM CŨ GIỮ NGUYÊN ---
@@ -945,10 +953,47 @@ function editName(p) {
     }
 }
 
+// Hàm chạy ngầm 2 giây để check V13
+// Hàm giám sát V13: Đọc trạng thái phản hồi từ ESP32
+async function monitorV13() {
+    console.log(">>> Đang đợi phản hồi từ V13 (Check 2s)...");
+    const key = localStorage.getItem('userPass');
+    
+    // Kiểm tra 5 lần, mỗi lần cách nhau 400ms (tổng 2 giây)
+    for (let i = 0; i < 5; i++) {
+        await new Promise(r => setTimeout(r, 400)); 
+
+        try {
+            // Gửi request lấy giá trị V13 từ Cloud
+            let response = await fetch(`${WORKER_URL}?action=get&device=${DEVICE_NAME}&pin=V13&key=${key}`);
+            let valueV13 = await response.text();
+            
+            // Ép về kiểu chuỗi và xóa khoảng trắng để so khớp chính xác
+            valueV13 = valueV13.trim();
+
+            console.log(`[Lần ${i+1}] Giá trị V13: ${valueV13}`);
+
+            // Nếu ESP32 gửi Blynk.virtualWrite(V13, 0) -> Nghĩa là xong việc/đóng ngắt thành công
+            if (valueV13 === "0") {
+                console.log(">>> Đã nhận phản hồi 0 từ V13: THOÁT SỚM");
+                
+                // Cập nhật đèn trạng thái trên giao diện nếu cần
+                const indicator = document.getElementById('status-indicator');
+                if(indicator) indicator.style.background = "#95a5a6"; // Xám (Tắt)
+                
+                return; // Thoát vòng lặp ngay lập tức
+            }
+        } catch (e) {
+            console.log("Chưa đọc được V13, đang thử lại...");
+        }
+    }
+    console.log(">>> Hết 2s, không nhận được phản hồi 0.");
+}
+
 
       
     </script>
 </body>
 </html>
 
-//am thanh
+//am thanh moi nhat
