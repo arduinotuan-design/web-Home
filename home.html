@@ -413,12 +413,7 @@ function playClickSound() {
    
         }
 
-        function openSchedule(pin) {
-            gotoPage('schedule');
-            let id = Object.keys(v10Mapping).find(key => v10Mapping[key] === pin);
-            if (id) document.getElementById("v10_id").value = id;
-            loadRoomSchedules();
-        }
+      
         //1111111111
        function loadRoomSchedules() {
     let roomId = document.getElementById('v10_id').value;
@@ -457,28 +452,37 @@ function playClickSound() {
         }
         
 
+
+
+
+
+
+
+
+
+
+
+
 // --- HÀM XÓA ĐÃ SỬA LẠI THEO ĐÚNG Ý BẠN ---
-function removeV10(i) {
-    if(confirm("Xóa lịch này và cập nhật lên thiết bị ngay?")) {
-        // 1. Xác định dữ liệu trước khi xóa
+async function removeV10(i) {
+    if(confirm("Bạn chắc chắn muốn xóa lịch này?")) {
         const itemToRemove = listV10[i];
         if (!itemToRemove) return;
 
         const roomId = itemToRemove.id; 
         const realId = parseInt(roomId) + 2; 
 
-        // 2. Xóa khỏi mảng và lưu bộ nhớ
+        // Tạm lưu lại để nếu lỗi thì khôi phục
+        const backupList = [...listV10];
+
+        // 1. Xóa trên giao diện trước cho mượt
         listV10.splice(i, 1);
         localStorage.setItem('v10_list_cache', JSON.stringify(listV10));
-        
-        // 3. QUAN TRỌNG: Gọi loadRoomSchedules() thay vì renderUI()
-        // Vì hàm này mới là hàm vẽ cái danh sách lịch đèn
         loadRoomSchedules();
 
-        // 4. GỬI LỆNH ĐỒNG BỘ XUỐNG ESP32 (Gửi đủ 3 gói để xóa hẳn)
+        // 2. Chuẩn bị dữ liệu gửi xuống (Gửi đè dữ liệu trống để xóa)
         let roomSchedules = listV10.filter(sch => String(sch.id) === String(roomId));
         let combinedData = "";
-        
         for (let j = 0; j < 3; j++) {
             if (roomSchedules[j]) {
                 combinedData += `id:${realId} ${roomSchedules[j].on} true ${roomSchedules[j].off} false;`;
@@ -487,106 +491,142 @@ function removeV10(i) {
             }
         }
 
-        console.log(">>> Đang gửi lệnh xóa triệt để tới V0:", combinedData);
-
+        // 3. Gửi lệnh xóa
         const key = localStorage.getItem('userPass');
-        fetch(WORKER_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-                'action': 'update',
-                'pin': 'V0',
-                'value': combinedData,
-                'device': DEVICE_NAME,
-                'key': key
-            })
-        }).then(r => {
-            if(r.ok) console.log("✅ ESP32 đã nhận lệnh xóa: " + combinedData);
-        });
+        try {
+            const response = await fetch(WORKER_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    'action': 'update', 'pin': 'V0', 'value': combinedData,
+                    'device': DEVICE_NAME, 'key': key
+                })
+            });
+
+            if(response.ok) {
+                // Đợi 2 giây rồi kiểm tra V13 xem ESP có phản hồi không
+                setTimeout(async () => {
+                    const checkUrl = `${WORKER_URL}/?action=get_pin&pin=V13&device=${DEVICE_NAME}&key=${key}`;
+                    const res = await fetch(checkUrl);
+                    const val = await res.text();
+
+                    if (parseInt(val.trim()) === 1) {
+                        alert("✅ Đã xóa lịch trên thiết bị thành công!");
+                        // Reset V13 về 0
+                        fetch(`${WORKER_URL}/?action=update&pin=V13&value=0&device=${DEVICE_NAME}&key=${key}`, {method: 'POST'});
+                    } else {
+                        alert("❌ Lỗi: Thiết bị chưa xác nhận xóa (V13=0). Vui lòng thử lại!");
+                        // Khôi phục lại dữ liệu cũ vì xóa thất bại
+                        listV10 = backupList;
+                        localStorage.setItem('v10_list_cache', JSON.stringify(listV10));
+                        loadRoomSchedules();
+                    }
+                }, 2000);
+            }
+        } catch (e) {
+            alert("❌ Lỗi mạng, không thể gửi yêu cầu xóa!");
+        }
     }
 }
-//--------------------------------------
-          
-function syncV10ToESP() {
-    let roomId = document.getElementById('v10_id').value;
-    let roomSchedules = listV10.filter(sch => String(sch.id) === String(roomId)).slice(0, 3);
-    
-    // Tạo chuỗi dữ liệu (Nếu không có lịch thì gửi chuỗi rỗng hoặc mặc định)
-    let combinedData = roomSchedules.map(sch => {
-        let realId = parseInt(sch.id) + 2;
-        return `id:${realId} ${sch.on} true ${sch.off} false`;
-    }).join(';') + ";";
 
+
+
+
+
+
+
+
+
+//--------------------------------------
+async function checkScheduleAck(btn, originalText) {
     const key = localStorage.getItem('userPass');
-    fetch(WORKER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-            'action': 'update', 'pin': 'V0', 'value': combinedData, 'device': DEVICE_NAME, 'key': key
-        })
-    }).then(() => console.log(">>> Đã đồng bộ xóa tới V0: ", combinedData));
+    const checkUrl = `${WORKER_URL}/?action=get_pin&pin=V13&device=${DEVICE_NAME}&key=${key}`;
+
+    try {
+        const response = await fetch(checkUrl);
+        const val = await response.text();
+        
+        if (parseInt(val.trim()) === 1) {
+            // THÀNH CÔNG
+            btn.innerText = "✅ THÀNH CÔNG";
+            btn.style.background = "#27ae60"; // Đổi sang màu xanh lá xác nhận
+            
+            // Sau khi thành công, nên reset V13 về 0 để chuẩn bị cho lần gửi sau
+            fetch(`${WORKER_URL}/?action=update&pin=V13&value=0&device=${DEVICE_NAME}&key=${key}`, {method: 'POST'});
+
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.style.background = "";
+                btn.disabled = false;
+            }, 2000);
+        } else {
+            // THẤT BẠI (V13 vẫn bằng 0)
+            alert("❌ ESP8266 không xác nhận (ACK thất bại). Vui lòng thử lại!");
+            btn.innerText = "❌ THỬ LẠI";
+            btn.style.background = "#e74c3c"; // Màu đỏ báo lỗi
+            btn.disabled = false;
+            
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.style.background = "";
+            }, 3000);
+        }
+    } catch (e) {
+        btn.disabled = false;
+        btn.innerText = originalText;
+    }
 }
-        // --- THAY THẾ HÀM NÀY VÀO FILE HTML CỦA BẠN ---
-// --- THAY THẾ HÀM NÀY VÀO FILE HTML CỦA BẠN ---
+
+//-----------------------------------------
+
 function saveAllV10(btn) {
-    btn.innerText = "⏳ ĐANG GỬI...";
+    const originalText = "GỬI & LƯU LỊCH ĐÈN LÊN ESP32";
+    btn.innerText = "⏳ ĐANG ĐỒNG BỘ...";
     btn.disabled = true;
 
-    // 1. Lấy đèn đang được chọn
     let roomId = document.getElementById('v10_id').value;
-    
-    // 2. Lấy danh sách lịch hiện có trên Web cho phòng này
-    let roomSchedules = listV10.filter(sch => String(sch.id) === String(roomId));
-    
-    // 3. QUAN TRỌNG: Tạo chuỗi dữ liệu luôn đủ 3 lịch (để ghi đè/xóa lịch cũ trên ESP32)
     let realId = parseInt(roomId) + 2;
     let combinedData = "";
     
+    // Gom dữ liệu 3 lịch
+    let roomSchedules = listV10.filter(sch => String(sch.id) === String(roomId));
     for (let i = 0; i < 3; i++) {
         if (roomSchedules[i]) {
-            // Nếu có lịch trên Web: Gửi giờ thật
             let sch = roomSchedules[i];
             combinedData += `id:${realId} ${sch.on} true ${sch.off} false;`;
         } else {
-            // Nếu không có (đã bị xóa hoặc chưa đặt): Gửi lệnh RESET để ESP32 xóa hẳn
             combinedData += `id:${realId} 00:00 false 00:00 false;`;
         }
     }
-    
-    console.log(`>>> Gửi tổng hợp (3 gói) tới V0:`, combinedData);
 
     const key = localStorage.getItem('userPass');
 
-    // 4. Gửi lên Cloud
+    // 1. Gửi lịch lên V0
     fetch(WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
-            'action': 'update',
-            'pin': 'V0',
-            'value': combinedData,
-            'device': DEVICE_NAME,
-            'key': key
+            'action': 'update', 'pin': 'V0', 'value': combinedData,
+            'device': DEVICE_NAME, 'key': key
         })
     })
     .then(r => {
         if(r.ok) {
-            alert(`✅ Đã đồng bộ 3 lịch cho Phòng ${roomId} (Bao gồm xóa lịch cũ nếu có)`);
-            btn.innerText = "✅ OK";
-            btn.style.background = "#95a5a6";
+            // 2. Sau khi gửi xong, đợi 2.5 giây rồi đi kiểm tra chân V13
+            // Chúng ta đợi lâu hơn (2.5s) vì ESP cần thời gian xử lý chuỗi và phản hồi
             setTimeout(() => {
-                btn.innerText = "GỬI & LƯU LỊCH ĐÈN LÊN ESP32";
-                btn.style.background = "";                
-                btn.disabled = false;
+                checkScheduleAck(btn, originalText);
             }, 2000);
         } else {
-            alert("❌ Lỗi gửi dữ liệu!");
+            alert("❌ Lỗi kết nối Cloud!");
             btn.disabled = false;
+            btn.innerText = originalText;
         }
     })
     .catch(e => {
         alert("❌ Lỗi mạng!");
         btn.disabled = false;
+        btn.innerText = originalText;
     });
 }
 // --- THAY THẾ HÀM NÀY VÀO FILE HTML CỦA BẠN ---
@@ -595,63 +635,101 @@ function saveAllV10(btn) {
 
 
 function sendCmd(pin, value) {
-   // playClickSound();
-   playClickSound(value === 1 ? 900 : 600);
     const key = localStorage.getItem('userPass');
-    const onBtn = document.getElementById(`on-${pin}`);
-    const offBtn = document.getElementById(`off-${pin}`);
-
-    // 1. HIỆU ỨNG TỨC THÌ: Nhấn là xanh ngay để cảm giác nút nhạy
-    if (onBtn && offBtn) {
-        if (value === 1) {
-            onBtn.className = "btn btn-on active-on";
-            offBtn.className = "btn btn-off";
-        } else {
-            onBtn.className = "btn btn-on";
-            offBtn.className = "btn btn-off active-off";
-        }
+    
+    // Đổi màu ngay lập tức để tạo cảm giác nhạy
+    if (value === 1) {
+        updateUI(pin, 'ON'); // Nhấn ON -> Xanh ngay
+    } else {
+        updateUI(pin, 'OFF'); // Nhấn OFF -> Xám đậm ngay
     }
 
-    // 2. GỬI LỆNH LÊN CHIP
     fetch(WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
-            'action': 'update',
-            'pin': pin,
-            'value': value,
-            'device': DEVICE_NAME,
-            'key': key
+            'action': 'update', 'pin': pin, 'value': value, 
+            'device': DEVICE_NAME, 'key': key
         })
     }).then(response => {
-        if (!response.ok) {
-            console.log("Lỗi gửi lệnh cho " + pin);
-        }
-    }).catch(e => console.log("Mất kết nối mạng"));
-
-    // 3. LOGIC CỘNG DỒN THỜI GIAN (Như bạn muốn: max 2s cho 2 đèn đầu, mỗi đèn sau +0.5s)
-    clickCounter++;
-    // Tính toán thời gian chờ: Đèn 1,2 chờ 2s. Từ đèn 3 trở đi mỗi đèn + 0.5s
-    let waitTime = 2000;
-    if (clickCounter > 2) {
-        waitTime = 2000 + ((clickCounter - 2) * 500);
-    }
-
-    // Xóa hẹn giờ cũ của chân này nếu có
-    if (pendingChecks[pin]) clearTimeout(pendingChecks[pin]);
-
-    // Hẹn giờ để kiểm tra xem Chip có thực sự bật/tắt chưa
-    pendingChecks[pin] = setTimeout(() => {
-      //  updateStatusOnly(); // Lấy trạng thái thật từ Chip về
-        
-        clickCounter--;
-        
-        if (clickCounter < 0) clickCounter = 0;
-        delete pendingChecks[pin];
-        monitorV13();
-        //console.log(`Đã kiểm tra lại trạng thái ${pin} sau ${waitTime}ms`);
-    }, waitTime);
+        // Sau 1.5 giây hỏi Worker xem thực tế thiết bị đã đổi chưa
+        setTimeout(() => {
+            checkFeedback(pin, value);
+        }, 1500);
+    }).catch(e => {
+        // Mất mạng thì trả về trạng thái ngược lại
+        const rollback = (value === 1) ? 'OFF' : 'ON';
+        updateUI(pin, rollback);
+    });
 }
+
+
+
+
+
+
+async function checkFeedback(pin, expectedValue) {
+    const key = localStorage.getItem('userPass');
+    const checkUrl = `${WORKER_URL}/?action=get_pin&pin=${pin}&device=${DEVICE_NAME}&key=${key}`;
+
+    try {
+        const response = await fetch(checkUrl);
+        const text = await response.text();
+        const actualValue = parseInt(text.trim());
+
+        if (actualValue !== expectedValue) {
+            // Bước 1: Xóa màu hiện tại (về xám lót)
+            updateUI(pin, 'RESET_GRAY');
+
+            // Bước 2: Sau 300ms, hiện lại màu của trạng thái ĐÚNG thực tế
+            setTimeout(() => {
+                if (expectedValue === 1) {
+                    // Nếu bấm ON lỗi -> Thực tế vẫn đang TẮT -> Hiện OFF xám đậm
+                    updateUI(pin, 'OFF');
+                } else {
+                    // Nếu bấm OFF lỗi -> Thực tế vẫn đang BẬT -> Hiện ON xanh
+                    updateUI(pin, 'ON');
+                }
+            }, 300);
+        }
+    } catch (e) {
+        console.log("Lỗi kết nối");
+    }
+}
+
+
+
+
+
+
+
+
+
+function updateUI(pin, status) {
+    const onBtn = document.getElementById(`on-${pin}`);
+    const offBtn = document.getElementById(`off-${pin}`);
+    if (!onBtn || !offBtn) return;
+
+    if (status === 'ON') {
+        // Trạng thái BẬT: Nút ON xanh, nút OFF xám lót
+        onBtn.className = "btn btn-on active-on";
+        offBtn.className = "btn btn-off";
+    } 
+    else if (status === 'OFF') {
+        // Trạng thái TẮT: Nút ON xám lót, nút OFF xám đậm
+        onBtn.className = "btn btn-on";
+        offBtn.className = "btn btn-off active-off";
+    } 
+    else if (status === 'RESET_GRAY') {
+        // Trạng thái LỖI: Cả hai đều về xám lót
+        onBtn.className = "btn btn-on";
+        offBtn.className = "btn btn-off";
+    }
+}
+
+
+
+
 
 
 
@@ -708,8 +786,16 @@ function sendCmd(pin, value) {
     
     
 }
-      function saveV2(btn) {
+ //-------------------------------------
+
+
+function saveV2(btn) {
+    const originalText = "GỬI & LƯU LỊCH TƯỚI";
+    btn.innerText = "⏳ ĐANG GỬI...";
+    btn.disabled = true; // Khóa nút để tránh bấm nhiều lần
+
     let full = [];
+    // Gom đủ 6 lịch tưới (để ghi đè/xóa lịch cũ trên ESP)
     for(let i=0; i<6; i++) {
         if(listV2[i]) {
             let p = listV2[i].t.split(':');
@@ -718,10 +804,10 @@ function sendCmd(pin, value) {
             full.push({id:i+1, h:0, m:0, d:0, a:false});
         }
     }
+    
     localStorage.setItem('v2_list_cache', JSON.stringify(listV2));
     const key = localStorage.getItem('userPass');
 
-    // POST nội dung y hệt bản GET
     fetch(WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -734,18 +820,25 @@ function sendCmd(pin, value) {
         })
     }).then((response) => {
         if (response.ok) {
-            btn.innerText = "✅ ĐÃ XỬ LÝ!"; 
-            btn.style.background = "#2ecc71";
-            setTimeout(() => { 
-                btn.innerText = "GỬI & LƯU LỊCH TƯỚI"; 
-                btn.style.background = ""; 
+            // SỬA TẠI ĐÂY: Thay vì hiện OK ngay, ta đợi 2 giây để check V13
+            console.log("Đã gửi lịch tưới lên V2, đợi 2s check V13...");
+            setTimeout(() => {
+                // Dùng chung hàm check V13 mà chúng ta đã viết cho lịch đèn
+                checkScheduleAck(btn, originalText); 
             }, 2000);
+        } else {
+            alert("❌ Lỗi Cloud!");
+            btn.disabled = false;
+            btn.innerText = originalText;
         }
     }).catch(e => {
         console.log("Lỗi mạng:", e);
+        btn.disabled = false;
+        btn.innerText = originalText;
     });
 }
 
+//------------------------------------   
 
 function uploadImg(pin) {
         let input = document.createElement('input');
@@ -778,45 +871,89 @@ function uploadImg(pin) {
         input.click();
     }
 
-      
-function removeV2(i) {
-    if(confirm("Xóa lịch?")) { 
-        // 1. Xóa phần tử khỏi mảng listV2 (Logic cũ của bạn)
-        listV2.splice(i, 1); 
-        
-        // 2. Vẽ lại giao diện ngay lập tức
-        renderUI(); 
-        
-        // 3. Gửi mảng mới lên Cloud để đồng bộ (Dùng POST y chang hàm saveV2)
-        const key = localStorage.getItem('userPass');
-        let full = [];
-        for(let j=0; j<6; j++) {
-            if(listV2[j]) {
-                let p = listV2[j].t.split(':');
-                full.push({id:j+1, h:parseInt(p[0]), m:parseInt(p[1]), d:parseInt(listV2[j].d), a:true});
-            } else {
-                full.push({id:j+1, h:0, m:0, d:0, a:false});
-            }
-        }
-        // Cập nhật bộ nhớ đệm
-        localStorage.setItem('v2_list_cache', JSON.stringify(listV2));
 
-        // Gửi lệnh POST đi
-        fetch(WORKER_URL, {
+
+
+async function removeV2(i) {
+    if (!confirm("Bạn muốn xóa lịch tưới này?")) return;
+
+    const key = localStorage.getItem('userPass');
+    const listContainer = document.getElementById('v2_list_ui');
+    const originalHTML = listContainer.innerHTML; // Lưu lại để khôi phục nếu lỗi
+
+    // 1. Tạo mảng tạm sau khi xóa
+    let tempV2List = [...listV2];
+    tempV2List.splice(i, 1);
+
+    // 2. Gom 1 cục 6 lịch theo cấu trúc JSON chuẩn của bạn
+    let full = [];
+    for (let j = 0; j < 6; j++) {
+        if (tempV2List[j]) {
+            let p = tempV2List[j].t.split(':');
+            full.push({
+                id: j + 1,
+                h: parseInt(p[0]),
+                m: parseInt(p[1]),
+                d: parseInt(tempV2List[j].d),
+                a: true
+            });
+        } else {
+            full.push({ id: j + 1, h: 0, m: 0, d: 0, a: false });
+        }
+    }
+
+    // Chuyển mảng thành chuỗi JSON để gửi đi
+    const jsonString = JSON.stringify(full);
+
+    // Hiển thị trạng thái chờ
+    listContainer.innerHTML = `<div style="text-align:center; color:#0d9488; padding:10px;">⏳ Đang xóa trên thiết bị (đợi 2s)...</div>`;
+
+    try {
+        // 3. Gửi "cục" JSON xuống V2
+        await fetch(WORKER_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({
-                'action': 'update',
-                'pin': 'V2',
-                'value': JSON.stringify(full),
-                'device': DEVICE_NAME,
-                'key': key
+                'action': 'update', 'pin': 'V2', 'value': jsonString,
+                'device': DEVICE_NAME, 'key': key
             })
-        }).then(r => {
-            console.log("Đã đồng bộ xóa lịch V2 lên Cloud.");
         });
+
+        // 4. CHẠY NGẦM 2 GIÂY ĐỂ ĐỌC V13
+        setTimeout(async () => {
+            try {
+                const checkUrl = `${WORKER_URL}/?action=get_pin&pin=V13&device=${DEVICE_NAME}&key=${key}`;
+                const res = await fetch(checkUrl);
+                const val = await res.text();
+
+                if (parseInt(val.trim()) === 1) {
+                    // THÀNH CÔNG: Thiết bị đã nhận và lưu LittleFS
+                    listV2 = tempV2List;
+                    localStorage.setItem('v2_list_cache', JSON.stringify(listV2));
+                    renderUI(); // Vẽ lại giao diện mới (mất lịch đã xóa)
+                    alert("✅ Đã xóa lịch thành công!");
+
+                    // Reset V13 về 0
+                    fetch(`${WORKER_URL}/?action=update&pin=V13&value=0&device=${DEVICE_NAME}&key=${key}`, { method: 'POST' });
+                } else {
+                    // THẤT BẠI: V13=0 (ESP chưa xác nhận)
+                    alert("❌ Lỗi: Thiết bị chưa nhận lệnh (V13=0). Lịch vẫn giữ nguyên!");
+                    renderUI(); // Vẽ lại giao diện cũ (hiện lại lịch như chưa xóa)
+                }
+            } catch (err) {
+                alert("❌ Lỗi mạng khi check V13!");
+                renderUI();
+            }
+        }, 2000);
+
+    } catch (e) {
+        alert("❌ Lỗi: Không thể gửi lệnh xóa!");
+        renderUI();
     }
 }
+
+
+
        
 let isUpdating = false; 
 function editName(p) {
@@ -947,64 +1084,9 @@ function editName(p) {
 }
 
 
-
-
-//------------------------------
-
-async function monitorV13() {
-    // 1. Dùng đúng mật mã Worker yêu cầu
-    const key = "1234567"; 
-    const device = "cay"; // Hoặc để trống tùy bạn, vì Worker sẽ chọn Token dựa trên cái này
-
-    console.log("%c>>> ĐANG LỌC V13 TỪ GET_ALL...", "color: blue; font-weight: bold;");
-
-    for (let i = 1; i <= 3; i++) {
-        await new Promise(r => setTimeout(r, 2000)); // Đợi 2s cho chắc
-
-        try {
-            // Dùng POST và gọi đúng action "get_all" mà Worker hỗ trợ
-            const response = await fetch(WORKER_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({
-                    'action': 'get_all',
-                    'device': device,
-                    'key': key
-                })
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                // Worker trả về JSON, ta lấy riêng V13 ra
-                const valV13 = String(data.V13);
-
-                if (valV13 === "1") {
-                    console.log(`Lần ${i}: %cSố 1 (Đang bật)`, "color: orange;");
-                } else if (valV13 === "0" || valV13 === "undefined") {
-                    // Nếu trả về 0 hoặc chưa có dữ liệu thì coi như Xong
-                    console.log(`Lần ${i}: %cSố 0 (Xong!)`, "color: green; font-weight: bold;");
-                    return; 
-                }
-            } else {
-                console.log(`Lần ${i}: Lỗi ${response.status} (Kiểm tra key/mật mã)`);
-            }
-        } catch (err) {
-            console.log(`Lần ${i}: Lỗi cấu trúc JSON hoặc mạng!`);
-        }
-    }
-}
-
-
-
-
-
-
-
-
-
-        
+      
     </script>
 </body>
 </html>
 
-//am thanh
+
